@@ -219,12 +219,11 @@ firebase deploy --only hosting
 
 Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para detalhes.
 
-## 📞 Suporte
+## 📞 Contato
 
-Para dúvidas ou sugestões:
-- Abra uma [issue](https://github.com/seu-usuario/mais-fut/issues)
-- Entre em contato: seu-email@exemplo.com
+- LinkedIn: https://www.linkedin.com/in/jean-ramalho/
+- Email: jeanramalho.dev@gmail.com
 
 ---
 
-**+Fut** - Desenvolvido com ⚽ e 💚 para a comunidade do futebol amador!
+**+Fut** - Desenvolvido por Jean Ramalho com ⚽ e 💚 para a comunidade do futebol amador!
