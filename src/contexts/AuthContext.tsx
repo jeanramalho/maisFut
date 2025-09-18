@@ -18,6 +18,8 @@ interface UserData {
   phone?: string;
   photoURL?: string;
   position?: string;
+  positionQuadra?: string;
+  positionCampo?: string;
   futs?: Record<string, boolean>;
   fcmToken?: string;
 }
