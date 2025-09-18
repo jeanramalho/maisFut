@@ -24,27 +24,10 @@ export default function Header() {
   };
 
   return (
-    <header className="bg-primary border-b border-gray-700 px-6 py-4">
+    <header className="bg-primary px-6 py-4">
       <div className="flex items-center justify-between">
-        {/* App Title */}
-        <div className="flex items-center">
-          <h1 className="text-secondary text-xl font-bold">+Fut</h1>
-        </div>
-
         {/* User Profile */}
-        <div className="flex items-center space-x-4">
-          {/* User Positions */}
-          {(userData?.positionQuadra || userData?.positionCampo) && (
-            <div className="text-gray-300 text-sm">
-              <span className="font-medium">
-                {userData?.positionQuadra && userData?.positionCampo 
-                  ? `${userData.positionQuadra}/${userData.positionCampo}`
-                  : userData?.positionQuadra || userData?.positionCampo
-                }
-              </span>
-            </div>
-          )}
-
+        <div className="flex items-center space-x-3">
           {/* Profile Picture */}
           <div 
             className="relative cursor-pointer"
@@ -54,13 +37,13 @@ export default function Header() {
               <Image
                 src={userData.photoURL}
                 alt={userData.name}
-                width={40}
-                height={40}
+                width={48}
+                height={48}
                 className="rounded-full object-cover"
               />
             ) : (
-              <div className="w-10 h-10 bg-secondary rounded-full flex items-center justify-center">
-                <span className="text-primary font-semibold text-sm">
+              <div className="w-12 h-12 bg-secondary rounded-full flex items-center justify-center">
+                <span className="text-primary font-semibold text-lg">
                   {userData?.name?.charAt(0).toUpperCase()}
                 </span>
               </div>
@@ -68,7 +51,7 @@ export default function Header() {
 
             {/* Dropdown Menu */}
             {showMenu && (
-              <div className="absolute top-full right-0 mt-2 w-56 bg-primary-lighter rounded-lg shadow-lg border border-gray-600 z-50">
+              <div className="absolute top-full left-0 mt-2 w-56 bg-primary-lighter rounded-lg shadow-lg border border-gray-600 z-50">
                 <div className="p-3 border-b border-gray-600">
                   <div className="text-white font-medium truncate">{userData?.name}</div>
                   <div className="text-gray-400 text-sm truncate">{userData?.email}</div>
@@ -95,27 +78,33 @@ export default function Header() {
               </div>
             )}
           </div>
+
+          {/* User Info */}
+          <div>
+            <h1 className="text-white font-semibold text-lg">{userData?.name}</h1>
+            <p className="text-gray-400 text-sm">
+              {userData?.positionQuadra && userData?.positionCampo 
+                ? `${userData.positionQuadra}/${userData.positionCampo}`
+                : userData?.positionQuadra || userData?.positionCampo || 'Posição não definida'
+              }
+            </p>
+          </div>
         </div>
 
-        {/* Stats & Notifications */}
+        {/* Right Side Actions */}
         <div className="flex items-center space-x-4">
-          {/* Quick Stats */}
-          <div className="flex items-center space-x-4 text-sm">
-            <div className="text-center">
-              <div className="text-secondary font-semibold">{userStats.goals}</div>
-              <div className="text-gray-400">Gols</div>
-            </div>
-            <div className="text-center">
-              <div className="text-secondary font-semibold">{userStats.assists}</div>
-              <div className="text-gray-400">Assists</div>
-            </div>
-          </div>
-
           {/* Notifications */}
           <button className="text-gray-400 hover:text-secondary transition-colors relative">
             <Bell size={24} />
-            {/* Notification badge - show if there are pending notifications */}
-            {/* <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div> */}
+            <div className="absolute -top-1 -right-1 w-3 h-3 bg-secondary rounded-full"></div>
+          </button>
+
+          {/* Settings */}
+          <button 
+            onClick={() => router.push('/profile')}
+            className="text-gray-400 hover:text-secondary transition-colors"
+          >
+            <Settings size={24} />
           </button>
         </div>
       </div>
