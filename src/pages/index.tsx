@@ -183,73 +183,88 @@ export default function Home() {
           <div className="space-y-4">
             {mensalFuts.length > 0 ? (
               mensalFuts.map(fut => (
-                <div key={fut.id} className="bg-primary-lighter rounded-lg p-4">
-                  <div className="flex items-start space-x-4">
-                    {/* Fut Icon */}
-                    <div className="w-12 h-12 bg-secondary rounded-full flex items-center justify-center flex-shrink-0">
-                      <span className="text-primary font-bold text-lg">
-                        {fut.name.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-
-                    {/* Fut Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center space-x-2 mb-1">
-                        <h3 className="text-white font-semibold text-lg">{fut.name}</h3>
-                        <div className="w-4 h-4 bg-yellow-500 rounded-full flex items-center justify-center">
-                          <span className="text-black text-xs">👑</span>
-                        </div>
-                      </div>
-                      
-                      <p className="text-gray-400 text-sm mb-2">
-                        {fut.recurrence?.kind === 'monthly' 
-                          ? `Todo dia ${fut.recurrence.day}`
-                          : fut.recurrence?.kind === 'weekly'
-                          ? `Toda ${['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'][fut.recurrence.day]}`
-                          : 'Recorrente'
-                        }
-                      </p>
-
-                      <div className="space-y-1 text-sm">
-                        <div className="flex items-center space-x-2">
-                          <Calendar size={14} className="text-gray-400" />
-                          <span className="text-white">{getNextFutDate(fut)}</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <MapPin size={14} className="text-gray-400" />
-                          <span className="text-white">{fut.location || 'Local não definido'}</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Users size={14} className="text-gray-400" />
-                          <span className="text-white">
-                            {Object.keys(fut.members || {}).length} / {fut.maxVagas} confirmados
-                          </span>
-                        </div>
+                <div 
+                  key={fut.id} 
+                  className="relative rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+                  onClick={() => router.push(`/${fut.id}`)}
+                >
+                  {/* Background Image */}
+                  {fut.photoURL && (
+                    <div 
+                      className="absolute inset-0 bg-cover bg-center"
+                      style={{ backgroundImage: `url(${fut.photoURL})` }}
+                    />
+                  )}
+                  
+                  {/* Blur Overlay */}
+                  <div className="absolute inset-0 bg-black bg-opacity-40 backdrop-blur-sm" />
+                  
+                  {/* Content */}
+                  <div className="relative bg-primary-lighter p-4">
+                    <div className="flex items-start space-x-4">
+                      {/* Fut Icon */}
+                      <div className="w-12 h-12 bg-secondary rounded-full flex items-center justify-center flex-shrink-0">
+                        <span className="text-primary font-bold text-lg">
+                          {fut.name.charAt(0).toUpperCase()}
+                        </span>
                       </div>
 
-                      {/* Progress Bar */}
-                      <div className="mt-3">
-                        <div className="w-full bg-gray-700 rounded-full h-2">
-                          <div 
-                            className="bg-secondary h-2 rounded-full" 
-                            style={{ 
-                              width: `${Math.min((Object.keys(fut.members || {}).length / fut.maxVagas) * 100, 100)}%` 
-                            }}
-                          ></div>
+                      {/* Fut Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <h3 className="text-white font-semibold text-lg">{fut.name}</h3>
+                          <div className="w-4 h-4 bg-yellow-500 rounded-full flex items-center justify-center">
+                            <span className="text-black text-xs">👑</span>
+                          </div>
+                        </div>
+                        
+                        <p className="text-gray-400 text-sm mb-2">
+                          {fut.recurrence?.kind === 'monthly' 
+                            ? `Todo dia ${fut.recurrence.day}`
+                            : fut.recurrence?.kind === 'weekly'
+                            ? `Toda ${['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'][fut.recurrence.day]}`
+                            : 'Recorrente'
+                          }
+                        </p>
+
+                        <div className="space-y-1 text-sm">
+                          <div className="flex items-center space-x-2">
+                            <Calendar size={14} className="text-gray-400" />
+                            <span className="text-white">{getNextFutDate(fut)}</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <MapPin size={14} className="text-gray-400" />
+                            <span className="text-white">{fut.location || 'Local não definido'}</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Users size={14} className="text-gray-400" />
+                            <span className="text-white">
+                              {Object.keys(fut.members || {}).length} / {fut.maxVagas} confirmados
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div className="mt-3">
+                          <div className="w-full bg-gray-700 rounded-full h-2">
+                            <div 
+                              className="bg-secondary h-2 rounded-full" 
+                              style={{ 
+                                width: `${Math.min((Object.keys(fut.members || {}).length / fut.maxVagas) * 100, 100)}%` 
+                              }}
+                            ></div>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Right Side */}
-                    <div className="flex flex-col items-end space-y-2">
-                      <div className="flex items-center space-x-1">
-                        <Clock size={14} className="text-gray-400" />
-                        <span className="text-white text-sm">{fut.time || '19:00'}</span>
+                      {/* Right Side */}
+                      <div className="flex flex-col items-end space-y-2">
+                        <div className="flex items-center space-x-1">
+                          <Clock size={14} className="text-gray-400" />
+                          <span className="text-white text-sm">{fut.time || '19:00'}</span>
+                        </div>
+                        <ChevronRight size={16} className="text-gray-400" />
                       </div>
-                      <button className="bg-secondary text-primary px-3 py-1 rounded-lg text-xs font-medium hover:bg-secondary-darker transition-colors">
-                        Vagas
-                      </button>
-                      <ChevronRight size={16} className="text-gray-400" />
                     </div>
                   </div>
                 </div>
@@ -281,73 +296,88 @@ export default function Home() {
           <div className="space-y-4">
             {avulsoFuts.length > 0 ? (
               avulsoFuts.map(fut => (
-                <div key={fut.id} className="bg-primary-lighter rounded-lg p-4">
-                  <div className="flex items-start space-x-4">
-                    {/* Fut Icon */}
-                    <div className="w-12 h-12 bg-secondary rounded-full flex items-center justify-center flex-shrink-0">
-                      <span className="text-primary font-bold text-lg">
-                        {fut.name.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-
-                    {/* Fut Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center space-x-2 mb-1">
-                        <h3 className="text-white font-semibold text-lg">{fut.name}</h3>
-                        <div className="w-4 h-4 bg-yellow-500 rounded-full flex items-center justify-center">
-                          <span className="text-black text-xs">👑</span>
-                        </div>
-                      </div>
-                      
-                      <p className="text-gray-400 text-sm mb-2">
-                        {fut.recurrence?.kind === 'monthly' 
-                          ? `Todo dia ${fut.recurrence.day}`
-                          : fut.recurrence?.kind === 'weekly'
-                          ? `Toda ${['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'][fut.recurrence.day]}`
-                          : 'Recorrente'
-                        }
-                      </p>
-
-                      <div className="space-y-1 text-sm">
-                        <div className="flex items-center space-x-2">
-                          <Calendar size={14} className="text-gray-400" />
-                          <span className="text-white">{getNextFutDate(fut)}</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <MapPin size={14} className="text-gray-400" />
-                          <span className="text-white">{fut.location || 'Local não definido'}</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Users size={14} className="text-gray-400" />
-                          <span className="text-white">
-                            {Object.keys(fut.members || {}).length} / {fut.maxVagas} confirmados
-                          </span>
-                        </div>
+                <div 
+                  key={fut.id} 
+                  className="relative rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+                  onClick={() => router.push(`/${fut.id}`)}
+                >
+                  {/* Background Image */}
+                  {fut.photoURL && (
+                    <div 
+                      className="absolute inset-0 bg-cover bg-center"
+                      style={{ backgroundImage: `url(${fut.photoURL})` }}
+                    />
+                  )}
+                  
+                  {/* Blur Overlay */}
+                  <div className="absolute inset-0 bg-black bg-opacity-40 backdrop-blur-sm" />
+                  
+                  {/* Content */}
+                  <div className="relative bg-primary-lighter p-4">
+                    <div className="flex items-start space-x-4">
+                      {/* Fut Icon */}
+                      <div className="w-12 h-12 bg-secondary rounded-full flex items-center justify-center flex-shrink-0">
+                        <span className="text-primary font-bold text-lg">
+                          {fut.name.charAt(0).toUpperCase()}
+                        </span>
                       </div>
 
-                      {/* Progress Bar */}
-                      <div className="mt-3">
-                        <div className="w-full bg-gray-700 rounded-full h-2">
-                          <div 
-                            className="bg-secondary h-2 rounded-full" 
-                            style={{ 
-                              width: `${Math.min((Object.keys(fut.members || {}).length / fut.maxVagas) * 100, 100)}%` 
-                            }}
-                          ></div>
+                      {/* Fut Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <h3 className="text-white font-semibold text-lg">{fut.name}</h3>
+                          <div className="w-4 h-4 bg-yellow-500 rounded-full flex items-center justify-center">
+                            <span className="text-black text-xs">👑</span>
+                          </div>
+                        </div>
+                        
+                        <p className="text-gray-400 text-sm mb-2">
+                          {fut.recurrence?.kind === 'monthly' 
+                            ? `Todo dia ${fut.recurrence.day}`
+                            : fut.recurrence?.kind === 'weekly'
+                            ? `Toda ${['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'][fut.recurrence.day]}`
+                            : 'Recorrente'
+                          }
+                        </p>
+
+                        <div className="space-y-1 text-sm">
+                          <div className="flex items-center space-x-2">
+                            <Calendar size={14} className="text-gray-400" />
+                            <span className="text-white">{getNextFutDate(fut)}</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <MapPin size={14} className="text-gray-400" />
+                            <span className="text-white">{fut.location || 'Local não definido'}</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Users size={14} className="text-gray-400" />
+                            <span className="text-white">
+                              {Object.keys(fut.members || {}).length} / {fut.maxVagas} confirmados
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div className="mt-3">
+                          <div className="w-full bg-gray-700 rounded-full h-2">
+                            <div 
+                              className="bg-secondary h-2 rounded-full" 
+                              style={{ 
+                                width: `${Math.min((Object.keys(fut.members || {}).length / fut.maxVagas) * 100, 100)}%` 
+                              }}
+                            ></div>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Right Side */}
-                    <div className="flex flex-col items-end space-y-2">
-                      <div className="flex items-center space-x-1">
-                        <Clock size={14} className="text-gray-400" />
-                        <span className="text-white text-sm">{fut.time || '19:00'}</span>
+                      {/* Right Side */}
+                      <div className="flex flex-col items-end space-y-2">
+                        <div className="flex items-center space-x-1">
+                          <Clock size={14} className="text-gray-400" />
+                          <span className="text-white text-sm">{fut.time || '19:00'}</span>
+                        </div>
+                        <ChevronRight size={16} className="text-gray-400" />
                       </div>
-                      <button className="bg-secondary text-primary px-3 py-1 rounded-lg text-xs font-medium hover:bg-secondary-darker transition-colors">
-                        Vagas
-                      </button>
-                      <ChevronRight size={16} className="text-gray-400" />
                     </div>
                   </div>
                 </div>

@@ -67,82 +67,84 @@ export default function FutCard({ fut }: FutCardProps) {
   return (
     <div
       onClick={handleCardClick}
-      className="bg-primary-lighter rounded-lg p-4 border border-gray-700 hover:border-secondary transition-colors cursor-pointer"
+      className="relative rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
     >
-      <div className="flex items-start space-x-4">
-        {/* Fut Photo */}
-        <div className="flex-shrink-0">
-          {fut.photoURL ? (
-            <Image
-              src={fut.photoURL}
-              alt={fut.name}
-              width={60}
-              height={60}
-              className="rounded-lg object-cover"
-            />
-          ) : (
-            <div className="w-15 h-15 bg-secondary rounded-lg flex items-center justify-center">
-              <span className="text-primary font-semibold text-lg">
-                {fut.name.charAt(0).toUpperCase()}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Fut Info */}
-        <div className="flex-1 min-w-0">
-          <h3 className="text-white font-semibold text-lg mb-1">{fut.name}</h3>
-          
-          {fut.description && (
-            <p className="text-gray-400 text-sm mb-2 line-clamp-2">
-              {fut.description}
-            </p>
-          )}
-
-          <div className="space-y-1 text-sm text-gray-400">
-            {/* Next Date */}
-            <div className="flex items-center space-x-2">
-              <Calendar size={16} />
-              <span>Próximo: {getNextOccurrence()}</span>
-            </div>
-
-            {/* Location */}
-            {fut.location && (
-              <div className="flex items-center space-x-2">
-                <MapPin size={16} />
-                <span className="truncate">{fut.location}</span>
-              </div>
-            )}
-
-            {/* Members */}
-            <div className="flex items-center space-x-2">
-              <Users size={16} />
-              <span>{memberCount}/{fut.maxVagas} jogadores</span>
-            </div>
+      {/* Background Image */}
+      {fut.photoURL && (
+        <div 
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: `url(${fut.photoURL})` }}
+        />
+      )}
+      
+      {/* Blur Overlay */}
+      <div className="absolute inset-0 bg-black bg-opacity-40 backdrop-blur-sm" />
+      
+      {/* Content */}
+      <div className="relative bg-primary-lighter p-4">
+        <div className="flex items-start space-x-4">
+          {/* Fut Icon */}
+          <div className="w-12 h-12 bg-secondary rounded-full flex items-center justify-center flex-shrink-0">
+            <span className="text-primary font-bold text-lg">
+              {fut.name.charAt(0).toUpperCase()}
+            </span>
           </div>
 
-          {/* Status Badge */}
-          <div className="flex items-center justify-between mt-3">
-            <div className="flex space-x-2">
-              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                fut.type === 'mensal' 
-                  ? 'bg-blue-900 text-blue-300' 
-                  : 'bg-purple-900 text-purple-300'
-              }`}>
-                {fut.type === 'mensal' ? 'Mensal' : 'Avulso'}
-              </span>
-              
-              {fut.privacy === 'invite' && (
-                <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-900 text-yellow-300">
-                  Privado
-                </span>
+          {/* Fut Info */}
+          <div className="flex-1 min-w-0">
+            <h3 className="text-white font-semibold text-lg mb-1">{fut.name}</h3>
+            
+            {fut.description && (
+              <p className="text-gray-400 text-sm mb-2 line-clamp-2">
+                {fut.description}
+              </p>
+            )}
+
+            <div className="space-y-1 text-sm text-gray-400">
+              {/* Next Date */}
+              <div className="flex items-center space-x-2">
+                <Calendar size={16} />
+                <span>Próximo: {getNextOccurrence()}</span>
+              </div>
+
+              {/* Location */}
+              {fut.location && (
+                <div className="flex items-center space-x-2">
+                  <MapPin size={16} />
+                  <span className="truncate">{fut.location}</span>
+                </div>
               )}
+
+              {/* Members */}
+              <div className="flex items-center space-x-2">
+                <Users size={16} />
+                <span>{memberCount}/{fut.maxVagas} jogadores</span>
+              </div>
             </div>
 
-            {/* Availability indicator */}
-            <div className={`w-3 h-3 rounded-full ${
-              memberCount < fut.maxVagas ? 'bg-green-500' : 'bg-red-500'
-            }`} />
+            {/* Status Badge */}
+            <div className="flex items-center justify-between mt-3">
+              <div className="flex space-x-2">
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  fut.type === 'mensal' 
+                    ? 'bg-blue-900 text-blue-300' 
+                    : 'bg-purple-900 text-purple-300'
+                }`}>
+                  {fut.type === 'mensal' ? 'Mensal' : 'Avulso'}
+                </span>
+                
+                {fut.privacy === 'invite' && (
+                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-900 text-yellow-300">
+                    Privado
+                  </span>
+                )}
+              </div>
+
+              {/* Availability indicator */}
+              <div className={`w-3 h-3 rounded-full ${
+                memberCount < fut.maxVagas ? 'bg-green-500' : 'bg-red-500'
+              }`} />
+            </div>
           </div>
         </div>
       </div>
