@@ -21,6 +21,7 @@ interface Fut {
   members: Record<string, boolean>;
   location?: string;
   description?: string;
+  time?: string;
   createdAt: number;
 }
 

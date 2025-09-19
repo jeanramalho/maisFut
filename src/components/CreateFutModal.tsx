@@ -23,6 +23,7 @@ export default function CreateFutModal({ onClose, onSuccess }: CreateFutModalPro
     location: '',
     maxVagas: 10,
     privacy: 'public' as 'public' | 'invite',
+    time: '19:00',
   });
   
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -71,6 +72,7 @@ export default function CreateFutModal({ onClose, onSuccess }: CreateFutModalPro
         location: formData.location,
         maxVagas: formData.maxVagas,
         privacy: formData.privacy,
+        time: formData.time,
         members: {
           [user.uid]: true, // Creator is automatically a member
         },
@@ -290,6 +292,19 @@ export default function CreateFutModal({ onClose, onSuccess }: CreateFutModalPro
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
               className="w-full px-3 py-2 bg-primary border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
               placeholder="Ex: Quadra do Clube"
+            />
+          </div>
+
+          {/* Time */}
+          <div>
+            <label className="block text-white text-sm font-medium mb-2">
+              Horário
+            </label>
+            <input
+              type="time"
+              value={formData.time}
+              onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+              className="w-full px-3 py-2 bg-primary border border-gray-600 rounded-lg text-white focus:outline-none focus:border-secondary"
             />
           </div>
 

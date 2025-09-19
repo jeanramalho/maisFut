@@ -23,6 +23,7 @@ interface Fut {
   members: Record<string, boolean>;
   location?: string;
   description?: string;
+  time?: string;
 }
 
 export default function Home() {
@@ -30,6 +31,53 @@ export default function Home() {
   const [futs, setFuts] = useState<Fut[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const router = useRouter();
+
+  // Função para calcular a próxima data do fut
+  const getNextFutDate = (fut: Fut) => {
+    if (fut.type === 'avulso') {
+      return 'Data a definir';
+    }
+
+    if (!fut.recurrence) {
+      return 'Data a definir';
+    }
+
+    const now = new Date();
+    const { kind, day } = fut.recurrence;
+
+    if (kind === 'weekly') {
+      // Calcular próxima ocorrência semanal
+      const daysOfWeek = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+      const targetDay = day; // 0 = Domingo, 1 = Segunda, etc.
+      const currentDay = now.getDay();
+      
+      let daysUntilTarget = targetDay - currentDay;
+      if (daysUntilTarget <= 0) {
+        daysUntilTarget += 7; // Próxima semana
+      }
+      
+      const nextDate = new Date(now);
+      nextDate.setDate(now.getDate() + daysUntilTarget);
+      
+      return `Próximo fut ${nextDate.toLocaleDateString('pt-BR')}`;
+    } else if (kind === 'monthly') {
+      // Calcular próxima ocorrência mensal
+      const currentDay = now.getDate();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+      
+      let nextDate = new Date(currentYear, currentMonth, day);
+      
+      // Se o dia já passou este mês, ir para o próximo mês
+      if (day < currentDay) {
+        nextDate = new Date(currentYear, currentMonth + 1, day);
+      }
+      
+      return `Próximo fut ${nextDate.toLocaleDateString('pt-BR')}`;
+    }
+
+    return 'Data a definir';
+  };
 
   useEffect(() => {
     if (!loading && !user) {
@@ -86,11 +134,11 @@ export default function Home() {
           <div className="flex items-center space-x-6 text-sm mb-4">
             <div className="flex items-center space-x-2">
               <Trophy size={16} className="text-secondary" />
-              <span className="text-white">12 gols</span>
+              <span className="text-white">{userData?.stats?.totalGoals || 0} gols</span>
             </div>
             <div className="flex items-center space-x-2">
               <Target size={16} className="text-secondary" />
-              <span className="text-white">8 assists</span>
+              <span className="text-white">{userData?.stats?.totalAssists || 0} assists</span>
             </div>
           </div>
 
@@ -99,17 +147,17 @@ export default function Home() {
             <div className="flex justify-between">
               <div className="text-center">
                 <Trophy size={24} className="text-secondary mx-auto mb-2" />
-                <div className="text-white text-2xl font-bold">12</div>
+                <div className="text-white text-2xl font-bold">{userData?.stats?.totalGoals || 0}</div>
                 <div className="text-gray-400 text-sm">Gols</div>
               </div>
               <div className="text-center">
                 <Target size={24} className="text-secondary mx-auto mb-2" />
-                <div className="text-white text-2xl font-bold">8</div>
+                <div className="text-white text-2xl font-bold">{userData?.stats?.totalAssists || 0}</div>
                 <div className="text-gray-400 text-sm">Assistências</div>
               </div>
               <div className="text-center">
                 <Calendar size={24} className="text-secondary mx-auto mb-2" />
-                <div className="text-white text-2xl font-bold">3</div>
+                <div className="text-white text-2xl font-bold">{futs.length}</div>
                 <div className="text-gray-400 text-sm">Futs</div>
               </div>
             </div>
@@ -165,7 +213,7 @@ export default function Home() {
                       <div className="space-y-1 text-sm">
                         <div className="flex items-center space-x-2">
                           <Calendar size={14} className="text-gray-400" />
-                          <span className="text-white">Em -246 dias</span>
+                          <span className="text-white">{getNextFutDate(fut)}</span>
                         </div>
                         <div className="flex items-center space-x-2">
                           <MapPin size={14} className="text-gray-400" />
@@ -196,7 +244,7 @@ export default function Home() {
                     <div className="flex flex-col items-end space-y-2">
                       <div className="flex items-center space-x-1">
                         <Clock size={14} className="text-gray-400" />
-                        <span className="text-white text-sm">19:00</span>
+                        <span className="text-white text-sm">{fut.time || '19:00'}</span>
                       </div>
                       <button className="bg-secondary text-primary px-3 py-1 rounded-lg text-xs font-medium hover:bg-secondary-darker transition-colors">
                         Vagas
@@ -263,7 +311,7 @@ export default function Home() {
                       <div className="space-y-1 text-sm">
                         <div className="flex items-center space-x-2">
                           <Calendar size={14} className="text-gray-400" />
-                          <span className="text-white">Em -246 dias</span>
+                          <span className="text-white">{getNextFutDate(fut)}</span>
                         </div>
                         <div className="flex items-center space-x-2">
                           <MapPin size={14} className="text-gray-400" />
@@ -294,7 +342,7 @@ export default function Home() {
                     <div className="flex flex-col items-end space-y-2">
                       <div className="flex items-center space-x-1">
                         <Clock size={14} className="text-gray-400" />
-                        <span className="text-white text-sm">19:00</span>
+                        <span className="text-white text-sm">{fut.time || '19:00'}</span>
                       </div>
                       <button className="bg-secondary text-primary px-3 py-1 rounded-lg text-xs font-medium hover:bg-secondary-darker transition-colors">
                         Vagas

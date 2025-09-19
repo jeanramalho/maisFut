@@ -22,6 +22,11 @@ interface UserData {
   positionCampo?: string;
   futs?: Record<string, boolean>;
   fcmToken?: string;
+  stats?: {
+    totalGoals: number;
+    totalAssists: number;
+    totalGames: number;
+  };
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);

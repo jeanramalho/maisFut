@@ -38,10 +38,9 @@ export default function Login() {
     <div className="min-h-screen bg-primary flex flex-col items-center justify-center px-6">
       {/* Logo */}
       <div className="mb-8">
-        <div className="w-24 h-24 bg-secondary rounded-full flex items-center justify-center">
-          <span className="text-primary text-3xl font-bold">+F</span>
+        <div className="w-32 h-32 bg-secondary rounded-full flex items-center justify-center">
+          <span className="text-primary text-4xl font-bold">+F</span>
         </div>
-        <h1 className="text-secondary text-2xl font-bold text-center mt-4">+Fut</h1>
       </div>
 
       {/* Form */}
