@@ -34,13 +34,15 @@ export default function Header() {
             onClick={() => setShowMenu(!showMenu)}
           >
             {userData?.photoURL ? (
-              <Image
-                src={userData.photoURL}
-                alt={userData.name}
-                width={48}
-                height={48}
-                className="rounded-full object-cover"
-              />
+              <div className="w-12 h-12 rounded-full overflow-hidden">
+                <Image
+                  src={userData.photoURL}
+                  alt={userData.name}
+                  width={48}
+                  height={48}
+                  className="w-full h-full object-cover"
+                />
+              </div>
             ) : (
               <div className="w-12 h-12 bg-secondary rounded-full flex items-center justify-center">
                 <span className="text-primary font-semibold text-lg">

@@ -40,7 +40,8 @@ export default function FutDetail() {
   
   const [fut, setFut] = useState<Fut | null>(null);
   const [members, setMembers] = useState<Record<string, UserData>>({});
-  const [activeTab, setActiveTab] = useState<'members' | 'occurrences' | 'settings'>('members');
+  const [activeTab, setActiveTab] = useState<'fut' | 'members' | 'occurrences' | 'settings'>('fut');
+  const [showImageModal, setShowImageModal] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -122,10 +123,10 @@ export default function FutDetail() {
 
   return (
     <div className="min-h-screen bg-primary">
-      {/* Header */}
+      {/* Header with back button */}
       <div className="bg-primary-lighter border-b border-gray-700">
         <div className="px-6 py-4">
-          <div className="flex items-center space-x-4 mb-4">
+          <div className="flex items-center space-x-4">
             <button
               onClick={() => router.back()}
               className="text-gray-400 hover:text-white transition-colors"
@@ -133,27 +134,87 @@ export default function FutDetail() {
               <ArrowLeft size={24} />
             </button>
             <h1 className="text-white text-xl font-semibold">Detalhes do Fut</h1>
+            {isAdmin && (
+              <button
+                onClick={() => setActiveTab('settings')}
+                className="ml-auto text-gray-400 hover:text-secondary transition-colors"
+              >
+                <Settings size={24} />
+              </button>
+            )}
           </div>
+        </div>
+      </div>
 
-          {/* Fut Info */}
-          <div className="flex items-start space-x-4">
-            {fut.photoURL ? (
-              <Image
-                src={fut.photoURL}
-                alt={fut.name}
-                width={80}
-                height={80}
-                className="rounded-lg object-cover"
-              />
-            ) : (
-              <div className="w-20 h-20 bg-secondary rounded-lg flex items-center justify-center">
-                <span className="text-primary font-semibold text-2xl">
+      {/* Fut Image Section */}
+      <div className="relative">
+        {fut.photoURL ? (
+          <div 
+            className="w-full h-64 bg-cover bg-center cursor-pointer"
+            style={{ backgroundImage: `url(${fut.photoURL})` }}
+            onClick={() => setShowImageModal(true)}
+          >
+            {/* Blur overlay at bottom */}
+            <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-black/80 to-transparent" />
+            
+            {/* Fut Info over blur */}
+            <div className="absolute bottom-0 left-0 right-0 p-6">
+              <div className="flex items-center space-x-2 mb-1">
+                <h2 className="text-white text-2xl font-bold">{fut.name}</h2>
+                {isAdmin && (
+                  <Crown size={20} className="text-yellow-500" />
+                )}
+              </div>
+              
+              {fut.description && (
+                <p className="text-gray-200 mb-2 text-sm">{fut.description}</p>
+              )}
+
+              <div className="space-y-1 text-sm text-gray-300">
+                <div className="flex items-center space-x-2">
+                  <Calendar size={16} />
+                  <span>{getRecurrenceText()}</span>
+                </div>
+                
+                {fut.location && (
+                  <div className="flex items-center space-x-2">
+                    <MapPin size={16} />
+                    <span>{fut.location}</span>
+                  </div>
+                )}
+                
+                <div className="flex items-center space-x-2">
+                  <Users size={16} />
+                  <span>{memberCount}/{fut.maxVagas} jogadores</span>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2 mt-3">
+                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                  fut.type === 'mensal' 
+                    ? 'bg-blue-900 text-blue-300' 
+                    : 'bg-purple-900 text-purple-300'
+                }`}>
+                  {fut.type === 'mensal' ? 'Fut Mensal' : 'Fut Avulso'}
+                </span>
+                
+                {fut.privacy === 'invite' && (
+                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-900 text-yellow-300">
+                    Privado
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="w-full h-64 bg-primary-lighter flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-24 h-24 bg-secondary rounded-lg flex items-center justify-center mx-auto mb-4">
+                <span className="text-primary font-bold text-4xl">
                   {fut.name.charAt(0).toUpperCase()}
                 </span>
               </div>
-            )}
-
-            <div className="flex-1 min-w-0">
+              
               <div className="flex items-center space-x-2 mb-1">
                 <h2 className="text-white text-2xl font-bold">{fut.name}</h2>
                 {isAdmin && (
@@ -200,21 +261,26 @@ export default function FutDetail() {
                 )}
               </div>
             </div>
-
-            {isAdmin && (
-              <button
-                onClick={() => setActiveTab('settings')}
-                className="text-gray-400 hover:text-secondary transition-colors"
-              >
-                <Settings size={24} />
-              </button>
-            )}
           </div>
-        </div>
+        )}
+      </div>
 
-        {/* Tabs */}
+      {/* Tabs */}
+      <div className="bg-primary-lighter border-b border-gray-700">
         <div className="px-6">
           <div className="flex space-x-1">
+            {isAdmin && (
+              <button
+                onClick={() => setActiveTab('fut')}
+                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                  activeTab === 'fut'
+                    ? 'bg-primary text-secondary border-b-2 border-secondary'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                Fut
+              </button>
+            )}
             <button
               onClick={() => setActiveTab('members')}
               className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
@@ -253,6 +319,97 @@ export default function FutDetail() {
 
       {/* Tab Content */}
       <div className="px-6 py-6">
+        {activeTab === 'fut' && isAdmin && (
+          <div className="space-y-6">
+            {/* Next Game Section */}
+            <div className="bg-primary-lighter rounded-lg p-4">
+              <h3 className="text-white text-lg font-semibold mb-4">Próximo Fut 23/09/2025</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-white text-sm font-medium mb-2">
+                    Quantidade de vagas liberadas
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max={fut.maxVagas}
+                    className="w-full px-3 py-2 bg-primary border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
+                    placeholder="Ex: 10"
+                  />
+                </div>
+                
+                <button className="w-full bg-secondary text-primary py-3 rounded-lg font-medium hover:bg-secondary-darker transition-colors">
+                  Liberar Lista
+                </button>
+                
+                {/* Action buttons for admin */}
+                <div className="flex space-x-3">
+                  <button className="flex-1 bg-green-600 text-black py-3 rounded-lg font-medium hover:bg-green-700 transition-colors">
+                    To Dentro
+                  </button>
+                  <button className="flex-1 bg-red-600 text-black py-3 rounded-lg font-medium hover:bg-red-700 transition-colors">
+                    To Fora
+                  </button>
+                </div>
+                
+                <button className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors">
+                  Adicionar Convidado
+                </button>
+              </div>
+            </div>
+
+            {/* Confirmed List Section */}
+            <div className="bg-primary-lighter rounded-lg p-4">
+              <h3 className="text-white text-lg font-semibold mb-4">Lista de Confirmados para o Fut 23/09/2025</h3>
+              
+              {/* Progress Bar */}
+              <div className="mb-4">
+                <div className="flex justify-between text-sm text-gray-400 mb-2">
+                  <span>Confirmados</span>
+                  <span>8/10</span>
+                </div>
+                <div className="w-full bg-gray-700 rounded-full h-3">
+                  <div 
+                    className="bg-secondary h-3 rounded-full" 
+                    style={{ width: '80%' }}
+                  ></div>
+                </div>
+              </div>
+              
+              {/* Confirmed Members List */}
+              <div className="space-y-3">
+                {Object.entries(members).slice(0, 5).map(([memberId, memberData]) => (
+                  <div key={memberId} className="flex items-center space-x-3">
+                    <div className="w-10 h-10 rounded-full overflow-hidden">
+                      {memberData.photoURL ? (
+                        <Image
+                          src={memberData.photoURL}
+                          alt={memberData.name}
+                          width={40}
+                          height={40}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-secondary rounded-full flex items-center justify-center">
+                          <span className="text-primary font-semibold text-sm">
+                            {memberData.name?.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-white font-medium">{memberData.name}</span>
+                  </div>
+                ))}
+              </div>
+              
+              <button className="w-full mt-4 bg-green-600 text-white py-3 rounded-lg font-medium hover:bg-green-700 transition-colors">
+                Compartilhar Lista
+              </button>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'members' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -357,6 +514,30 @@ export default function FutDetail() {
           </div>
         )}
       </div>
+
+      {/* Image Modal */}
+      {showImageModal && fut.photoURL && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50"
+          onClick={() => setShowImageModal(false)}
+        >
+          <div className="relative max-w-4xl max-h-full p-4">
+            <Image
+              src={fut.photoURL}
+              alt={fut.name}
+              width={800}
+              height={600}
+              className="max-w-full max-h-full object-contain"
+            />
+            <button
+              onClick={() => setShowImageModal(false)}
+              className="absolute top-4 right-4 text-white text-2xl hover:text-gray-300"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

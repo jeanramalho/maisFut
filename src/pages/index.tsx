@@ -242,7 +242,13 @@ export default function Home() {
                             {fut.recurrence?.kind === 'monthly' 
                               ? `Todo dia ${fut.recurrence.day}`
                               : fut.recurrence?.kind === 'weekly'
-                              ? `Toda ${['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'][fut.recurrence.day]}`
+                              ? (() => {
+                                  const days = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+                                  const dayName = days[fut.recurrence.day];
+                                  return fut.recurrence.day === 0 || fut.recurrence.day === 6 
+                                    ? `Todo ${dayName.toLowerCase()}`
+                                    : `Toda ${dayName}`;
+                                })()
                               : 'Recorrente'
                             }
                           </p>
@@ -370,7 +376,13 @@ export default function Home() {
                             {fut.recurrence?.kind === 'monthly' 
                               ? `Todo dia ${fut.recurrence.day}`
                               : fut.recurrence?.kind === 'weekly'
-                              ? `Toda ${['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'][fut.recurrence.day]}`
+                              ? (() => {
+                                  const days = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+                                  const dayName = days[fut.recurrence.day];
+                                  return fut.recurrence.day === 0 || fut.recurrence.day === 6 
+                                    ? `Todo ${dayName.toLowerCase()}`
+                                    : `Toda ${dayName}`;
+                                })()
                               : 'Recorrente'
                             }
                           </p>

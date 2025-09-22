@@ -180,13 +180,15 @@ export default function ProfileSettings() {
           <div className="flex flex-col items-center space-y-4">
             <div className="relative">
               {imagePreview ? (
-                <Image
-                  src={imagePreview}
-                  alt="Profile"
-                  width={120}
-                  height={120}
-                  className="rounded-full object-cover"
-                />
+                <div className="w-30 h-30 rounded-full overflow-hidden">
+                  <Image
+                    src={imagePreview}
+                    alt="Profile"
+                    width={120}
+                    height={120}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
               ) : (
                 <div className="w-30 h-30 bg-secondary rounded-full flex items-center justify-center">
                   <User size={48} className="text-primary" />
