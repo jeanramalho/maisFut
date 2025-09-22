@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { ref, onValue, get } from 'firebase/database';
+import { ref, onValue, get, set } from 'firebase/database';
 import { useAuth } from '@/contexts/AuthContext';
 import { database } from '@/lib/firebase';
 import { ArrowLeft, Settings, Users, Calendar, MapPin, Crown, X, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -27,10 +27,12 @@ interface Fut {
 
 interface UserData {
   name: string;
-  email: string;
+  email?: string;
   phone?: string;
   photoURL?: string;
   position?: string;
+  isGuest?: boolean;
+  guestType?: string;
 }
 
 export default function FutDetail() {
@@ -56,8 +58,8 @@ export default function FutDetail() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [showTeamDrawModal, setShowTeamDrawModal] = useState(false);
   const [showTeamSelectModal, setShowTeamSelectModal] = useState(false);
-  const [teamCount, setTeamCount] = useState(2);
-  const [playersPerTeam, setPlayersPerTeam] = useState(5);
+  const [teamCount, setTeamCount] = useState('');
+  const [playersPerTeam, setPlayersPerTeam] = useState('');
   const [teams, setTeams] = useState<Record<string, string[]>>({});
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
   const [futEnded, setFutEnded] = useState(false);
@@ -94,6 +96,50 @@ export default function FutDetail() {
       }
 
       setFut({ id: id as string, ...futData });
+
+      // Load fut state
+      if (futData.listReleased !== undefined) {
+        setListReleased(futData.listReleased);
+      }
+      if (futData.releasedVagas !== undefined) {
+        setReleasedVagas(futData.releasedVagas);
+      }
+      if (futData.confirmedMembers) {
+        setConfirmedMembers(futData.confirmedMembers);
+      }
+      if (futData.futStarted !== undefined) {
+        setFutStarted(futData.futStarted);
+      }
+      if (futData.teams) {
+        setTeams(futData.teams);
+      }
+      if (futData.teamStats) {
+        setTeamStats(futData.teamStats);
+      }
+      if (futData.playerStats) {
+        setPlayerStats(futData.playerStats);
+      }
+      if (futData.futEnded !== undefined) {
+        setFutEnded(futData.futEnded);
+      }
+      if (futData.votingOpen !== undefined) {
+        setVotingOpen(futData.votingOpen);
+      }
+      if (futData.votingEnded !== undefined) {
+        setVotingEnded(futData.votingEnded);
+      }
+      if (futData.playerVotes) {
+        setPlayerVotes(futData.playerVotes);
+      }
+      if (futData.userVotes) {
+        setUserVotes(futData.userVotes);
+      }
+      if (futData.showRanking !== undefined) {
+        setShowRanking(futData.showRanking);
+      }
+      if (futData.ranking) {
+        setRanking(futData.ranking);
+      }
 
       // Fetch member data
       if (futData.members) {
@@ -152,25 +198,74 @@ export default function FutDetail() {
     return 'Recorrência não definida';
   };
 
-  const handleReleaseList = () => {
-    setListReleased(true);
-    setConfirmedMembers([user?.uid || '']); // Admin se confirma automaticamente
-    
-    // If no specific vagas set, use fut's maxVagas
-    if (releasedVagas === 0) {
-      setReleasedVagas(fut?.maxVagas || 0);
+  const handleReleaseList = async () => {
+    try {
+      const futRef = ref(database, `futs/${id}`);
+      await set(futRef, {
+        ...fut,
+        listReleased: true,
+        releasedVagas: releasedVagas || fut.maxVagas,
+        releasedAt: new Date().toISOString()
+      });
+      
+      setListReleased(true);
+      setConfirmedMembers([user?.uid || '']); // Admin se confirma automaticamente
+      
+      // If no specific vagas set, use fut's maxVagas
+      if (releasedVagas === 0) {
+        setReleasedVagas(fut?.maxVagas || 0);
+      }
+      
+      alert('Lista liberada! Os jogadores podem confirmar presença.');
+    } catch (error) {
+      console.error('Error releasing list:', error);
+      alert('Erro ao liberar lista');
     }
   };
 
-  const handleConfirmPresence = (isIn: boolean) => {
+  const handleConfirmPresence = async (isIn: boolean) => {
     if (!user?.uid) return;
     
-    if (isIn) {
-      if (!confirmedMembers.includes(user.uid)) {
-        setConfirmedMembers([...confirmedMembers, user.uid]);
+    try {
+      const futRef = ref(database, `futs/${id}`);
+      const snapshot = await get(futRef);
+      const futData = snapshot.val();
+      
+      let newConfirmedMembers = [...confirmedMembers];
+      
+      if (isIn) {
+        if (!confirmedMembers.includes(user.uid)) {
+          newConfirmedMembers = [...confirmedMembers, user.uid];
+        }
+      } else {
+        newConfirmedMembers = confirmedMembers.filter(id => id !== user.uid);
       }
-    } else {
-      setConfirmedMembers(confirmedMembers.filter(id => id !== user.uid));
+      
+      // Update Firebase
+      await set(ref(database, `futs/${id}/confirmedMembers`), newConfirmedMembers);
+      
+      // Update local state
+      setConfirmedMembers(newConfirmedMembers);
+    } catch (error) {
+      console.error('Error confirming presence:', error);
+      alert('Erro ao confirmar presença');
+    }
+  };
+
+  const handleStartFut = async () => {
+    try {
+      const futRef = ref(database, `futs/${id}`);
+      await set(futRef, {
+        ...fut,
+        futStarted: true,
+        startedAt: new Date().toISOString()
+      });
+      
+      setFutStarted(true);
+      alert('Fut iniciado! Agora você pode gerenciar times e dados.');
+    } catch (error) {
+      console.error('Error starting fut:', error);
+      alert('Erro ao iniciar fut');
     }
   };
 
@@ -192,8 +287,8 @@ export default function FutDetail() {
     setShowGuestModal(false);
   };
 
-  const handleSearchUsers = async (query: string) => {
-    if (!query.trim()) {
+  const handleSearchUsers = async () => {
+    if (!searchQuery.trim()) {
       setSearchResults([]);
       return;
     }
@@ -205,11 +300,18 @@ export default function FutDetail() {
       
       const results = Object.entries(users)
         .filter(([uid, userData]: [string, any]) => 
-          userData.name?.toLowerCase().includes(query.toLowerCase()) ||
-          userData.email?.toLowerCase().includes(query.toLowerCase()) ||
-          userData.phone?.includes(query)
+          (userData.email?.toLowerCase() === searchQuery.toLowerCase() ||
+          userData.phone === searchQuery) &&
+          !confirmedMembers.includes(uid) // Not already confirmed
         )
-        .map(([uid, userData]) => ({ uid, ...userData }))
+        .map(([uid, userData]: [string, any]) => ({ 
+          uid, 
+          name: userData.name || '',
+          email: userData.email || '',
+          phone: userData.phone || '',
+          photoURL: userData.photoURL || '',
+          position: userData.position || ''
+        }))
         .slice(0, 10); // Limit to 10 results
       
       setSearchResults(results);
@@ -223,6 +325,8 @@ export default function FutDetail() {
     if (!guestType) return;
 
     try {
+      console.log('Adding guest:', { guestType, guestName, guestEmail, guestPhone });
+      
       if (guestType === 'avulso') {
         if (!guestName.trim()) {
           alert('Por favor, digite o nome do convidado');
@@ -257,16 +361,29 @@ export default function FutDetail() {
         const snapshot = await get(usersRef);
         const users = snapshot.val() || {};
         
+        console.log('Searching for user with email/phone:', { guestEmail, guestPhone });
+        console.log('All users:', users);
+        
         const existingUser = Object.entries(users).find(([uid, userData]: [string, any]) => 
           userData.email === guestEmail || userData.phone === guestPhone
         );
         
         if (existingUser) {
           const [uid, userData] = existingUser;
+          const userDataTyped = userData as any;
+          console.log('Found existing user:', { uid, userData: userDataTyped });
           setConfirmedMembers([...confirmedMembers, uid]);
           setMembers(prev => ({
             ...prev,
-            [uid]: { ...userData, isGuest: true, guestType: 'cadastrado' }
+            [uid]: { 
+              name: userDataTyped.name || '',
+              email: userDataTyped.email || '',
+              phone: userDataTyped.phone || '',
+              photoURL: userDataTyped.photoURL || '',
+              position: userDataTyped.position || '',
+              isGuest: true, 
+              guestType: 'cadastrado' 
+            }
           }));
           alert('Convidado cadastrado adicionado com sucesso!');
         } else {
@@ -281,17 +398,33 @@ export default function FutDetail() {
       setGuestPhone('');
       setGuestType(null);
       setShowGuestTypeModal(false);
-    } catch (error) {
-      alert('Erro ao adicionar convidado');
+    } catch (error: any) {
+      console.error('Error adding guest:', error);
+      alert(`Erro ao adicionar convidado: ${error?.message || 'Erro desconhecido'}`);
     }
   };
 
   const handleAddSearchedUser = async (userData: any) => {
     try {
+      console.log('Adding searched user as guest:', userData);
+      
+      // Validate userData
+      if (!userData.uid) {
+        throw new Error('UID do usuário não encontrado');
+      }
+      
+      if (!userData.name) {
+        throw new Error('Nome do usuário não encontrado');
+      }
+      
       setConfirmedMembers([...confirmedMembers, userData.uid]);
       setMembers(prev => ({
         ...prev,
-        [userData.uid]: { ...userData, isGuest: true, guestType: 'cadastrado' }
+        [userData.uid]: { 
+          ...userData, 
+          isGuest: true, 
+          guestType: 'cadastrado' 
+        }
       }));
       
       // Reset search
@@ -300,32 +433,44 @@ export default function FutDetail() {
       setShowGuestTypeModal(false);
       
       alert('Convidado cadastrado adicionado com sucesso!');
-    } catch (error) {
-      alert('Erro ao adicionar convidado');
+    } catch (error: any) {
+      console.error('Error adding searched user:', error);
+      alert(`Erro ao adicionar convidado: ${error?.message || 'Erro desconhecido'}`);
     }
   };
 
-  const handleSearchMembers = async (query: string) => {
-    if (!query.trim()) {
+  const handleSearchMembers = async () => {
+    if (!memberSearchQuery.trim()) {
       setMemberSearchResults([]);
       return;
     }
 
     try {
+      console.log('Searching for members with query:', memberSearchQuery);
       const usersRef = ref(database, 'users');
       const snapshot = await get(usersRef);
       const users = snapshot.val() || {};
       
+      console.log('All users:', users);
+      console.log('Current members:', members);
+      
       const results = Object.entries(users)
         .filter(([uid, userData]: [string, any]) => 
-          (userData.name?.toLowerCase().includes(query.toLowerCase()) ||
-          userData.email?.toLowerCase().includes(query.toLowerCase()) ||
-          userData.phone?.includes(query)) &&
+          (userData.email?.toLowerCase() === memberSearchQuery.toLowerCase() ||
+          userData.phone === memberSearchQuery) &&
           !members[uid] // Not already a member
         )
-        .map(([uid, userData]) => ({ uid, ...userData }))
+        .map(([uid, userData]: [string, any]) => ({ 
+          uid, 
+          name: userData.name || '',
+          email: userData.email || '',
+          phone: userData.phone || '',
+          photoURL: userData.photoURL || '',
+          position: userData.position || ''
+        }))
         .slice(0, 10); // Limit to 10 results
       
+      console.log('Search results:', results);
       setMemberSearchResults(results);
     } catch (error) {
       console.error('Error searching members:', error);
@@ -335,21 +480,36 @@ export default function FutDetail() {
 
   const handleAddMember = async (userData: any) => {
     try {
+      console.log('Adding member:', userData);
+      console.log('Fut ID:', id);
+      
+      // Validate userData
+      if (!userData.uid) {
+        throw new Error('UID do usuário não encontrado');
+      }
+      
+      if (!userData.name) {
+        throw new Error('Nome do usuário não encontrado');
+      }
+      
       // Add to fut members
       const futRef = ref(database, `futs/${id}/members/${userData.uid}`);
       await set(futRef, {
-        name: userData.name,
-        email: userData.email,
-        phone: userData.phone,
-        photoURL: userData.photoURL,
-        position: userData.position,
+        name: userData.name || '',
+        email: userData.email || '',
+        phone: userData.phone || '',
+        photoURL: userData.photoURL || '',
+        position: userData.position || '',
         joinedAt: new Date().toISOString()
       });
       
       // Update local state
       setMembers(prev => ({
         ...prev,
-        [userData.uid]: userData
+        [userData.uid]: {
+          ...userData,
+          isGuest: false
+        }
       }));
       
       // Reset search
@@ -358,14 +518,28 @@ export default function FutDetail() {
       setShowAddMemberModal(false);
       
       alert('Membro adicionado com sucesso!');
-    } catch (error) {
-      alert('Erro ao adicionar membro');
+    } catch (error: any) {
+      console.error('Error adding member:', error);
+      alert(`Erro ao adicionar membro: ${error?.message || 'Erro desconhecido'}`);
     }
   };
 
-  const handleTeamDraw = () => {
-    if (!teamCount || !playersPerTeam) {
+  const handleTeamDraw = async () => {
+    const teamCountNum = parseInt(teamCount);
+    const playersPerTeamNum = parseInt(playersPerTeam);
+    
+    if (!teamCount || !playersPerTeam || isNaN(teamCountNum) || isNaN(playersPerTeamNum)) {
       alert('Por favor, preencha todos os campos');
+      return;
+    }
+    
+    if (teamCountNum < 2) {
+      alert('Deve ter pelo menos 2 times');
+      return;
+    }
+    
+    if (playersPerTeamNum < 1) {
+      alert('Deve ter pelo menos 1 jogador por time');
       return;
     }
 
@@ -373,22 +547,34 @@ export default function FutDetail() {
     const newTeams: Record<string, string[]> = {};
     
     // Initialize teams
-    for (let i = 1; i <= teamCount; i++) {
+    for (let i = 1; i <= teamCountNum; i++) {
       newTeams[`Time ${i}`] = [];
     }
     
     // Distribute players
     let memberIndex = 0;
-    for (let i = 1; i <= teamCount; i++) {
+    for (let i = 1; i <= teamCountNum; i++) {
       const teamName = `Time ${i}`;
-      for (let j = 0; j < playersPerTeam && memberIndex < shuffledMembers.length; j++) {
-        newTeams[teamName].push(shuffledMembers[memberIndex]);
-        memberIndex++;
+      for (let j = 0; j < playersPerTeamNum; j++) {
+        if (memberIndex < shuffledMembers.length) {
+          newTeams[teamName].push(shuffledMembers[memberIndex]);
+          memberIndex++;
+        } else {
+          // Add VAGA if no more players
+          newTeams[teamName].push('VAGA');
+        }
       }
     }
     
     setTeams(newTeams);
     setShowTeamDrawModal(false);
+    
+    // Save teams to Firebase
+    try {
+      await set(ref(database, `futs/${id}/teams`), newTeams);
+    } catch (error) {
+      console.error('Error saving teams:', error);
+    }
     
     // Initialize stats
     const initialTeamStats: Record<string, { wins: number }> = {};
@@ -404,25 +590,53 @@ export default function FutDetail() {
     
     setTeamStats(initialTeamStats);
     setPlayerStats(initialPlayerStats);
+    
+    // Save initial stats to Firebase
+    try {
+      await set(ref(database, `futs/${id}/teamStats`), initialTeamStats);
+      await set(ref(database, `futs/${id}/playerStats`), initialPlayerStats);
+    } catch (error) {
+      console.error('Error saving initial stats:', error);
+    }
   };
 
-  const handleTeamSelect = () => {
-    if (!teamCount || !playersPerTeam) {
+  const handleTeamSelect = async () => {
+    const teamCountNum = parseInt(teamCount);
+    const playersPerTeamNum = parseInt(playersPerTeam);
+    
+    if (!teamCount || !playersPerTeam || isNaN(teamCountNum) || isNaN(playersPerTeamNum)) {
       alert('Por favor, preencha todos os campos');
+      return;
+    }
+    
+    if (teamCountNum < 2) {
+      alert('Deve ter pelo menos 2 times');
+      return;
+    }
+    
+    if (playersPerTeamNum < 1) {
+      alert('Deve ter pelo menos 1 jogador por time');
       return;
     }
 
     const newTeams: Record<string, string[]> = {};
-    for (let i = 1; i <= teamCount; i++) {
+    for (let i = 1; i <= teamCountNum; i++) {
       newTeams[`Time ${i}`] = [];
     }
     
     setTeams(newTeams);
     setShowTeamSelectModal(false);
     setSelectedTeam(`Time 1`);
+    
+    // Save teams to Firebase
+    try {
+      await set(ref(database, `futs/${id}/teams`), newTeams);
+    } catch (error) {
+      console.error('Error saving teams:', error);
+    }
   };
 
-  const handleAddPlayerToTeam = (playerId: string, teamName: string) => {
+  const handleAddPlayerToTeam = async (playerId: string, teamName: string) => {
     setTeams(prev => {
       const newTeams = { ...prev };
       
@@ -434,27 +648,59 @@ export default function FutDetail() {
       // Add player to selected team
       newTeams[teamName] = [...newTeams[teamName], playerId];
       
+      // Save to Firebase
+      try {
+        set(ref(database, `futs/${id}/teams`), newTeams);
+      } catch (error) {
+        console.error('Error saving teams:', error);
+      }
+      
       return newTeams;
     });
   };
 
-  const handleRemovePlayerFromTeam = (playerId: string, teamName: string) => {
-    setTeams(prev => ({
-      ...prev,
-      [teamName]: prev[teamName].filter(id => id !== playerId)
-    }));
+  const handleRemovePlayerFromTeam = async (playerId: string, teamName: string) => {
+    setTeams(prev => {
+      const newTeams = {
+        ...prev,
+        [teamName]: prev[teamName].filter(id => id !== playerId)
+      };
+      
+      // Save to Firebase
+      try {
+        set(ref(database, `futs/${id}/teams`), newTeams);
+      } catch (error) {
+        console.error('Error saving teams:', error);
+      }
+      
+      return newTeams;
+    });
   };
 
-  const handleSaveTeams = () => {
-    // Teams are already saved in state
-    alert('Times salvos com sucesso!');
+  const handleSaveTeams = async () => {
+    try {
+      await set(ref(database, `futs/${id}/teams`), teams);
+      alert('Times salvos com sucesso!');
+    } catch (error) {
+      console.error('Error saving teams:', error);
+      alert('Erro ao salvar times');
+    }
   };
 
-  const handleDeleteTeams = () => {
-    setTeams({});
-    setTeamStats({});
-    setPlayerStats({});
-    setSelectedTeam(null);
+  const handleDeleteTeams = async () => {
+    try {
+      await set(ref(database, `futs/${id}/teams`), null);
+      await set(ref(database, `futs/${id}/teamStats`), null);
+      await set(ref(database, `futs/${id}/playerStats`), null);
+      
+      setTeams({});
+      setTeamStats({});
+      setPlayerStats({});
+      setSelectedTeam(null);
+    } catch (error) {
+      console.error('Error deleting teams:', error);
+      alert('Erro ao deletar times');
+    }
   };
 
   const handleShareTeams = () => {
@@ -468,7 +714,7 @@ export default function FutDetail() {
       });
       
       // Add VAGA if team is not full
-      while (players.length < playersPerTeam) {
+      while (players.length < parseInt(playersPerTeam)) {
         message += `${players.length + 1}- VAGA\n`;
         players.push('VAGA');
       }
@@ -480,56 +726,139 @@ export default function FutDetail() {
     window.open(whatsappUrl, '_blank');
   };
 
-  const handleUpdateTeamWins = (teamName: string, delta: number) => {
-    setTeamStats(prev => ({
-      ...prev,
+  const handleUpdateTeamWins = async (teamName: string, delta: number) => {
+    const newStats = {
+      ...teamStats,
       [teamName]: {
-        wins: Math.max(0, (prev[teamName]?.wins || 0) + delta)
+        wins: Math.max(0, (teamStats[teamName]?.wins || 0) + delta)
       }
-    }));
+    };
+    
+    setTeamStats(newStats);
+    
+    // Save to Firebase
+    try {
+      const futRef = ref(database, `futs/${id}/teamStats/${teamName}`);
+      await set(futRef, newStats[teamName]);
+    } catch (error) {
+      console.error('Error saving team stats:', error);
+    }
   };
 
-  const handleUpdatePlayerStats = (playerId: string, stat: 'goals' | 'assists', delta: number) => {
-    setPlayerStats(prev => ({
-      ...prev,
+  const handleUpdatePlayerStats = async (playerId: string, stat: 'goals' | 'assists', delta: number) => {
+    const newStats = {
+      ...playerStats,
       [playerId]: {
-        ...prev[playerId],
-        [stat]: Math.max(0, (prev[playerId]?.[stat] || 0) + delta)
+        ...playerStats[playerId],
+        [stat]: Math.max(0, (playerStats[playerId]?.[stat] || 0) + delta)
       }
-    }));
+    };
+    
+    setPlayerStats(newStats);
+    
+    // Save to Firebase
+    try {
+      const futRef = ref(database, `futs/${id}/playerStats/${playerId}`);
+      await set(futRef, newStats[playerId]);
+      
+      // Update user's total stats
+      const userRef = ref(database, `users/${playerId}`);
+      const userSnapshot = await get(userRef);
+      const userData = userSnapshot.val();
+      
+      if (userData) {
+        const currentTotal = userData.totalGoals || 0;
+        const currentAssists = userData.totalAssists || 0;
+        
+        const newTotalGoals = stat === 'goals' ? currentTotal + delta : currentTotal;
+        const newTotalAssists = stat === 'assists' ? currentAssists + delta : currentAssists;
+        
+        await set(ref(database, `users/${playerId}/totalGoals`), Math.max(0, newTotalGoals));
+        await set(ref(database, `users/${playerId}/totalAssists`), Math.max(0, newTotalAssists));
+      }
+    } catch (error) {
+      console.error('Error saving player stats:', error);
+    }
   };
 
-  const handleEndFut = () => {
-    setFutEnded(true);
-    alert('Fut encerrado! Não é mais possível alterar os dados.');
+  const handleEndFut = async () => {
+    try {
+      const futRef = ref(database, `futs/${id}`);
+      await set(futRef, {
+        ...fut,
+        futEnded: true,
+        endedAt: new Date().toISOString()
+      });
+      
+      setFutEnded(true);
+      alert('Fut encerrado! Não é mais possível alterar os dados.');
+    } catch (error) {
+      console.error('Error ending fut:', error);
+      alert('Erro ao encerrar fut');
+    }
   };
 
-  const handleStartVoting = () => {
-    setVotingOpen(true);
-    // Initialize player votes
-    const initialVotes: Record<string, number> = {};
-    Object.values(teams).flat().forEach(playerId => {
-      initialVotes[playerId] = 0;
-    });
-    setPlayerVotes(initialVotes);
+  const handleStartVoting = async () => {
+    try {
+      const futRef = ref(database, `futs/${id}`);
+      await set(futRef, {
+        ...fut,
+        votingOpen: true,
+        votingStartedAt: new Date().toISOString()
+      });
+      
+      setVotingOpen(true);
+      // Initialize player votes
+      const initialVotes: Record<string, number> = {};
+      Object.values(teams).flat().forEach(playerId => {
+        initialVotes[playerId] = 0;
+      });
+      setPlayerVotes(initialVotes);
+    } catch (error) {
+      console.error('Error starting voting:', error);
+      alert('Erro ao iniciar votação');
+    }
   };
 
-  const handleEndVoting = () => {
-    setVotingEnded(true);
-    setVotingOpen(false);
-    alert('Votação encerrada!');
+  const handleEndVoting = async () => {
+    try {
+      const futRef = ref(database, `futs/${id}`);
+      await set(futRef, {
+        ...fut,
+        votingEnded: true,
+        votingOpen: false,
+        votingEndedAt: new Date().toISOString()
+      });
+      
+      setVotingEnded(true);
+      setVotingOpen(false);
+      alert('Votação encerrada!');
+    } catch (error) {
+      console.error('Error ending voting:', error);
+      alert('Erro ao encerrar votação');
+    }
   };
 
-  const handleVote = (playerId: string, rating: number) => {
+  const handleVote = async (playerId: string, rating: number) => {
     if (!user?.uid || !votingOpen) return;
     
-    setUserVotes(prev => ({
-      ...prev,
+    const newVotes = {
+      ...userVotes,
       [user.uid]: {
-        ...prev[user.uid],
+        ...userVotes[user.uid],
         [playerId]: rating
       }
-    }));
+    };
+    
+    setUserVotes(newVotes);
+    
+    // Save to Firebase
+    try {
+      const futRef = ref(database, `futs/${id}/votes/${user.uid}`);
+      await set(futRef, newVotes[user.uid]);
+    } catch (error) {
+      console.error('Error saving vote:', error);
+    }
   };
 
   const handleGenerateRanking = (type: 'pontuacao' | 'artilharia' | 'assistencias' | 'vitorias' = 'pontuacao') => {
@@ -615,24 +944,262 @@ export default function FutDetail() {
     setShowRanking(true);
   };
 
-  const handleFinalizeFut = () => {
-    // Reset everything for next fut
-    setFutStarted(false);
-    setListReleased(false);
-    setTeams({});
-    setTeamStats({});
-    setPlayerStats({});
-    setFutEnded(false);
-    setVotingOpen(false);
-    setVotingEnded(false);
-    setPlayerVotes({});
-    setUserVotes({});
-    setShowRanking(false);
-    setRanking(null);
-    setConfirmedMembers([]);
-    setReleasedVagas(fut?.maxVagas || 0);
+  const handleDownloadRanking = () => {
+    if (!ranking || ranking.length === 0) return;
     
-    alert('Fut finalizado! Pronto para o próximo.');
+    const rankingTitle = rankingType === 'pontuacao' ? 'Ranking de Pontuação' :
+                        rankingType === 'artilharia' ? 'Ranking de Artilharia' :
+                        rankingType === 'assistencias' ? 'Ranking de Assistências' :
+                        'Ranking de Vitórias';
+    
+    let content = `${fut.name} - ${rankingTitle}\n\n`;
+    
+    ranking.slice(0, 10).forEach((item: any, index: number) => {
+      const position = index + 1;
+      const medal = position === 1 ? '🥇' : position === 2 ? '🥈' : position === 3 ? '🥉' : '';
+      
+      if (rankingType === 'vitorias') {
+        content += `${position}${medal} ${item.teamName} - ${item.wins} vitórias\n`;
+      } else {
+        const value = rankingType === 'pontuacao' ? item.score :
+                     rankingType === 'artilharia' ? item.goals :
+                     item.assists;
+        const unit = rankingType === 'pontuacao' ? 'pts' :
+                    rankingType === 'artilharia' ? 'gols' :
+                    'assistências';
+        content += `${position}${medal} ${item.name} - ${value} ${unit}\n`;
+      }
+    });
+    
+    // Create and download file
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${fut.name}_${rankingTitle.replace(/\s+/g, '_')}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleGenerateImage = async () => {
+    if (!ranking || ranking.length === 0) return;
+    
+    const rankingTitle = rankingType === 'pontuacao' ? 'Ranking de Pontuação' :
+                        rankingType === 'artilharia' ? 'Ranking de Artilharia' :
+                        rankingType === 'assistencias' ? 'Ranking de Assistências' :
+                        'Ranking de Vitórias';
+    
+    // Create canvas
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    // Set canvas size
+    canvas.width = 800;
+    canvas.height = 600;
+    
+    // Background gradient
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, '#1a1a1a');
+    gradient.addColorStop(1, '#2d2d2d');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Header background
+    ctx.fillStyle = '#333333';
+    ctx.fillRect(0, 0, canvas.width, 120);
+    
+    // Title
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 28px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(fut.name, canvas.width / 2, 40);
+    
+    ctx.font = 'bold 20px Arial';
+    ctx.fillText(rankingTitle, canvas.width / 2, 70);
+    
+    // Date
+    ctx.font = '14px Arial';
+    ctx.fillStyle = '#cccccc';
+    ctx.fillText(new Date().toLocaleDateString('pt-BR'), canvas.width / 2, 95);
+    
+    // Rankings
+    ctx.font = '18px Arial';
+    ctx.textAlign = 'left';
+    
+    ranking.slice(0, 5).forEach((item: any, index: number) => {
+      const y = 160 + (index * 80);
+      const position = index + 1;
+      const medal = position === 1 ? '🥇' : position === 2 ? '🥈' : position === 3 ? '🥉' : '';
+      
+      // Background for each ranking item
+      ctx.fillStyle = '#2a2a2a';
+      ctx.fillRect(20, y - 30, canvas.width - 40, 60);
+      
+      // Border
+      ctx.strokeStyle = '#444444';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(20, y - 30, canvas.width - 40, 60);
+      
+      // Position and medal
+      ctx.fillStyle = '#00ff00';
+      ctx.font = 'bold 24px Arial';
+      ctx.fillText(`${position}`, 40, y);
+      
+      // Medal
+      if (medal) {
+        ctx.font = '32px Arial';
+        ctx.fillText(medal, 80, y);
+      }
+      
+      // Player photo or initial
+      if (rankingType !== 'vitorias') {
+        const player = members[item.playerId];
+        if (player?.photoURL) {
+          // Draw photo circle
+          ctx.fillStyle = '#444444';
+          ctx.beginPath();
+          ctx.arc(140, y - 10, 20, 0, 2 * Math.PI);
+          ctx.fill();
+          
+          // Draw photo border
+          ctx.strokeStyle = '#666666';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          
+          // Load and draw the actual image
+          try {
+            const img = new window.Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+              ctx.save();
+              ctx.beginPath();
+              ctx.arc(140, y - 10, 20, 0, 2 * Math.PI);
+              ctx.clip();
+              ctx.drawImage(img, 120, y - 30, 40, 40);
+              ctx.restore();
+            };
+            img.src = player.photoURL;
+          } catch (error) {
+            // Fallback to initial if image fails to load
+            ctx.fillStyle = '#00ff00';
+            ctx.beginPath();
+            ctx.arc(140, y - 10, 20, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            ctx.fillStyle = '#000000';
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            const initial = ((rankingType as any) === 'vitorias' ? (item as any).teamName : (item as any).name)?.charAt(0).toUpperCase() || '?';
+            ctx.fillText(initial, 140, y - 5);
+          }
+        } else {
+          // Draw initial circle
+          ctx.fillStyle = '#00ff00';
+          ctx.beginPath();
+          ctx.arc(140, y - 10, 20, 0, 2 * Math.PI);
+          ctx.fill();
+          
+          // Draw initial
+          ctx.fillStyle = '#000000';
+          ctx.font = 'bold 16px Arial';
+          ctx.textAlign = 'center';
+          const initial = ((rankingType as any) === 'vitorias' ? (item as any).teamName : (item as any).name)?.charAt(0).toUpperCase() || '?';
+          ctx.fillText(initial, 140, y - 5);
+        }
+      }
+      
+      // Name
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '18px Arial';
+      ctx.textAlign = 'left';
+      const name = rankingType === 'vitorias' ? item.teamName : item.name;
+      ctx.fillText(name, 180, y);
+      
+      // Value
+      ctx.fillStyle = '#00ff00';
+      ctx.font = 'bold 18px Arial';
+      ctx.textAlign = 'right';
+      if (rankingType === 'vitorias') {
+        ctx.fillText(`${item.wins} vitórias`, canvas.width - 40, y);
+      } else {
+        const value = rankingType === 'pontuacao' ? item.score :
+                     rankingType === 'artilharia' ? item.goals :
+                     item.assists;
+        const unit = rankingType === 'pontuacao' ? 'pts' :
+                    rankingType === 'artilharia' ? 'gols' :
+                    'assistências';
+        ctx.fillText(`${value} ${unit}`, canvas.width - 40, y);
+      }
+      ctx.textAlign = 'left';
+    });
+    
+    // Footer
+    ctx.fillStyle = '#666666';
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Gerado pelo +Fut', canvas.width / 2, canvas.height - 20);
+    
+    // Download image
+    canvas.toBlob((blob) => {
+      if (blob) {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${fut.name}_${rankingTitle.replace(/\s+/g, '_')}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+    }, 'image/png');
+  };
+
+  const handleFinalizeFut = async () => {
+    try {
+      const futRef = ref(database, `futs/${id}`);
+      await set(futRef, {
+        ...fut,
+        futStarted: false,
+        listReleased: false,
+        teams: {},
+        teamStats: {},
+        playerStats: {},
+        futEnded: false,
+        votingOpen: false,
+        votingEnded: false,
+        playerVotes: {},
+        userVotes: {},
+        showRanking: false,
+        ranking: null,
+        confirmedMembers: [],
+        releasedVagas: fut?.maxVagas || 0,
+        finalizedAt: new Date().toISOString()
+      });
+      
+      // Reset everything for next fut
+      setFutStarted(false);
+      setListReleased(false);
+      setTeams({});
+      setTeamStats({});
+      setPlayerStats({});
+      setFutEnded(false);
+      setVotingOpen(false);
+      setVotingEnded(false);
+      setPlayerVotes({});
+      setUserVotes({});
+      setShowRanking(false);
+      setRanking(null);
+      setConfirmedMembers([]);
+      setReleasedVagas(fut?.maxVagas || 0);
+      
+      alert('Fut finalizado! Pronto para o próximo.');
+    } catch (error) {
+      console.error('Error finalizing fut:', error);
+      alert('Erro ao finalizar fut');
+    }
   };
 
   return (
@@ -699,7 +1266,11 @@ export default function FutDetail() {
                 
                 <div className="flex items-center space-x-2">
                   <Users size={16} className="text-white drop-shadow-lg shadow-black" />
-                  <span className="text-white drop-shadow-lg shadow-black font-medium">{memberCount}/{fut.maxVagas} jogadores</span>
+                  <span className="text-white drop-shadow-lg shadow-black font-medium">{memberCount} membros</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Calendar size={16} className="text-white drop-shadow-lg shadow-black" />
+                  <span className="text-white drop-shadow-lg shadow-black font-medium">{fut.maxVagas} vagas sugeridas</span>
                 </div>
               </div>
 
@@ -755,7 +1326,11 @@ export default function FutDetail() {
                 
                 <div className="flex items-center space-x-2">
                   <Users size={16} />
-                  <span>{memberCount}/{fut.maxVagas} jogadores</span>
+                  <span>{memberCount} membros</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Calendar size={16} />
+                  <span>{fut.maxVagas} vagas sugeridas</span>
                 </div>
               </div>
 
@@ -993,23 +1568,23 @@ export default function FutDetail() {
                     return (
                       <div key={memberId} className="flex items-center space-x-2">
                         <span className="text-secondary font-bold text-sm w-6">{index + 1} -</span>
-                        <div className="w-8 h-8 rounded-full overflow-hidden">
-                          {memberData?.photoURL ? (
-                            <Image
-                              src={memberData.photoURL}
-                              alt={memberData.name}
-                              width={32}
-                              height={32}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-secondary rounded-full flex items-center justify-center">
-                              <span className="text-primary font-semibold text-xs">
-                                {memberData?.name?.charAt(0).toUpperCase() || 'C'}
-                              </span>
-                            </div>
-                          )}
-                        </div>
+                                {memberData?.photoURL ? (
+                                  <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                                    <Image
+                                      src={memberData.photoURL}
+                                      alt={memberData.name}
+                                      width={32}
+                                      height={32}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center flex-shrink-0">
+                                    <span className="text-primary font-semibold text-xs">
+                                      {memberData?.name?.charAt(0).toUpperCase() || 'C'}
+                                    </span>
+                                  </div>
+                                )}
                         <span className="text-white font-medium text-sm">{memberData?.name || 'Convidado'}</span>
                       </div>
                     );
@@ -1029,7 +1604,7 @@ export default function FutDetail() {
             {listReleased && !futStarted && (
               <div className="bg-primary-lighter rounded-lg p-3">
                 <button 
-                  onClick={() => setFutStarted(true)}
+                  onClick={handleStartFut}
                   className="w-full bg-yellow-600 text-white py-2 rounded text-sm font-medium hover:bg-yellow-700 transition-colors"
                 >
                   Iniciar Fut
@@ -1057,26 +1632,28 @@ export default function FutDetail() {
               {Object.entries(members)
                 .filter(([memberId, memberData]) => !memberData.isGuest) // Exclude guests
                 .map(([memberId, memberData]) => (
-                <div
-                  key={memberId}
-                  className="bg-primary-lighter rounded-lg p-4 border border-gray-700"
-                >
-                  <div className="flex items-center space-x-3">
-                    {memberData.photoURL ? (
-                      <Image
-                        src={memberData.photoURL}
-                        alt={memberData.name}
-                        width={40}
-                        height={40}
-                        className="rounded-full"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 bg-secondary rounded-full flex items-center justify-center">
-                        <span className="text-primary font-semibold text-sm">
-                          {memberData.name?.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                    )}
+                        <div
+                          key={memberId}
+                          className="bg-primary-lighter rounded-lg p-4 border border-gray-700"
+                        >
+                          <div className="flex items-center space-x-3">
+                            {memberData.photoURL ? (
+                              <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
+                                <Image
+                                  src={memberData.photoURL}
+                                  alt={memberData.name}
+                                  width={40}
+                                  height={40}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-10 h-10 bg-secondary rounded-full flex items-center justify-center flex-shrink-0">
+                                <span className="text-primary font-semibold text-sm">
+                                  {memberData.name?.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                            )}
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-2">
@@ -1174,7 +1751,7 @@ export default function FutDetail() {
                             );
                           })}
                           {/* Add VAGA if team is not full */}
-                          {Array.from({ length: Math.max(0, playersPerTeam - players.length) }).map((_, index) => (
+                          {Array.from({ length: Math.max(0, parseInt(playersPerTeam) - players.length) }).map((_, index) => (
                             <div key={`vaga-${index}`} className="text-gray-400 text-sm">
                               {players.length + index + 1}- VAGA
                             </div>
@@ -1226,7 +1803,7 @@ export default function FutDetail() {
 
                 {votingEnded && !showRanking && (
                   <button 
-                    onClick={handleGenerateRanking}
+                    onClick={() => handleGenerateRanking('pontuacao')}
                     className="w-full bg-green-600 text-white py-2 rounded text-sm font-medium hover:bg-green-700 transition-colors"
                   >
                     Gerar Ranking
@@ -1256,12 +1833,24 @@ export default function FutDetail() {
                         return (
                           <div key={playerId} className="bg-primary p-3 rounded-lg">
                             <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-3">
-                                <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center">
+                            <div className="flex items-center space-x-3">
+                              {player?.photoURL ? (
+                                <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                                  <Image
+                                    src={player.photoURL}
+                                    alt={player.name}
+                                    width={32}
+                                    height={32}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center flex-shrink-0">
                                   <span className="text-primary font-semibold text-xs">
                                     {player?.name?.charAt(0).toUpperCase() || 'C'}
                                   </span>
                                 </div>
+                              )}
                                 <span className="text-white text-sm font-medium">{player?.name || 'Convidado'}</span>
                               </div>
                               
@@ -1298,10 +1887,10 @@ export default function FutDetail() {
                          rankingType === 'assistencias' ? 'Ranking de Assistências' :
                          'Ranking de Vitórias'}
                       </h3>
-                      <div className="flex space-x-2">
+                      <div className="grid grid-cols-2 gap-2">
                         <button 
                           onClick={() => handleGenerateRanking('pontuacao')}
-                          className={`px-3 py-1 rounded text-xs font-medium ${
+                          className={`px-3 py-2 rounded text-sm font-medium ${
                             rankingType === 'pontuacao' ? 'bg-secondary text-primary' : 'bg-gray-600 text-white'
                           }`}
                         >
@@ -1309,7 +1898,7 @@ export default function FutDetail() {
                         </button>
                         <button 
                           onClick={() => handleGenerateRanking('artilharia')}
-                          className={`px-3 py-1 rounded text-xs font-medium ${
+                          className={`px-3 py-2 rounded text-sm font-medium ${
                             rankingType === 'artilharia' ? 'bg-secondary text-primary' : 'bg-gray-600 text-white'
                           }`}
                         >
@@ -1317,7 +1906,7 @@ export default function FutDetail() {
                         </button>
                         <button 
                           onClick={() => handleGenerateRanking('assistencias')}
-                          className={`px-3 py-1 rounded text-xs font-medium ${
+                          className={`px-3 py-2 rounded text-sm font-medium ${
                             rankingType === 'assistencias' ? 'bg-secondary text-primary' : 'bg-gray-600 text-white'
                           }`}
                         >
@@ -1325,7 +1914,7 @@ export default function FutDetail() {
                         </button>
                         <button 
                           onClick={() => handleGenerateRanking('vitorias')}
-                          className={`px-3 py-1 rounded text-xs font-medium ${
+                          className={`px-3 py-2 rounded text-sm font-medium ${
                             rankingType === 'vitorias' ? 'bg-secondary text-primary' : 'bg-gray-600 text-white'
                           }`}
                         >
@@ -1351,11 +1940,23 @@ export default function FutDetail() {
                                 </div>
                               ) : (
                                 <>
-                                  <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center">
-                                    <span className="text-primary font-semibold text-xs">
-                                      {item.name?.charAt(0).toUpperCase() || 'C'}
-                                    </span>
-                                  </div>
+                                  {members[item.playerId]?.photoURL ? (
+                                    <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                                      <Image
+                                        src={members[item.playerId]?.photoURL || ''}
+                                        alt={item.name}
+                                        width={32}
+                                        height={32}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center flex-shrink-0">
+                                      <span className="text-primary font-semibold text-xs">
+                                        {item.name?.charAt(0).toUpperCase() || 'C'}
+                                      </span>
+                                    </div>
+                                  )}
                                   <div>
                                     <div className="text-white text-sm font-medium">{item.name}</div>
                                     <div className="text-gray-400 text-xs">
@@ -1384,9 +1985,15 @@ export default function FutDetail() {
                       ))}
                     </div>
                     
-                    <div className="mt-4 flex justify-center">
+                    <div className="mt-4 flex justify-center space-x-3">
                       <button 
-                        onClick={() => {/* TODO: Generate image */}}
+                        onClick={() => handleDownloadRanking()}
+                        className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700 transition-colors"
+                      >
+                        Baixar TXT
+                      </button>
+                      <button 
+                        onClick={() => handleGenerateImage()}
                         className="bg-green-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-green-700 transition-colors"
                       >
                         Gerar Imagem
@@ -1439,11 +2046,23 @@ export default function FutDetail() {
                             <div key={playerId} className="bg-primary p-3 rounded-lg">
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center space-x-3">
-                                  <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center">
-                                    <span className="text-primary font-semibold text-xs">
-                                      {player?.name?.charAt(0).toUpperCase() || 'C'}
-                                    </span>
-                                  </div>
+                                  {player?.photoURL ? (
+                                    <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                                      <Image
+                                        src={player.photoURL}
+                                        alt={player.name}
+                                        width={32}
+                                        height={32}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center flex-shrink-0">
+                                      <span className="text-primary font-semibold text-xs">
+                                        {player?.name?.charAt(0).toUpperCase() || 'C'}
+                                      </span>
+                                    </div>
+                                  )}
                                   <div>
                                     <span className="text-white text-sm font-medium">{player?.name || 'Convidado'}</span>
                                     {isGuest && (
@@ -1453,45 +2072,49 @@ export default function FutDetail() {
                                 </div>
                                 
                                 {!futEnded && (
-                                  <div className="flex items-center space-x-6">
+                                  <div className="space-y-4">
                                     {/* Goals */}
-                                    <div className="flex items-center space-x-2">
-                                      <span className="text-gray-400 text-xs">Gols:</span>
-                                      <button 
-                                        onClick={() => handleUpdatePlayerStats(playerId, 'goals', -1)}
-                                        className="w-6 h-6 bg-red-600 text-white rounded text-xs font-bold hover:bg-red-700 transition-colors"
-                                      >
-                                        -
-                                      </button>
-                                      <span className="text-white text-sm min-w-[20px] text-center font-semibold">
-                                        {playerStats[playerId]?.goals || 0}
-                                      </span>
-                                      <button 
-                                        onClick={() => handleUpdatePlayerStats(playerId, 'goals', 1)}
-                                        className="w-6 h-6 bg-green-600 text-white rounded text-xs font-bold hover:bg-green-700 transition-colors"
-                                      >
-                                        +
-                                      </button>
+                                    <div className="flex flex-col items-center space-y-2">
+                                      <span className="text-gray-400 text-sm font-medium">Gols:</span>
+                                      <div className="flex items-center space-x-2">
+                                        <button 
+                                          onClick={() => handleUpdatePlayerStats(playerId, 'goals', -1)}
+                                          className="w-6 h-6 bg-red-600 text-white rounded text-xs font-bold hover:bg-red-700 transition-colors"
+                                        >
+                                          -
+                                        </button>
+                                        <span className="text-white text-lg min-w-[20px] text-center font-semibold">
+                                          {playerStats[playerId]?.goals || 0}
+                                        </span>
+                                        <button 
+                                          onClick={() => handleUpdatePlayerStats(playerId, 'goals', 1)}
+                                          className="w-6 h-6 bg-green-600 text-white rounded text-xs font-bold hover:bg-green-700 transition-colors"
+                                        >
+                                          +
+                                        </button>
+                                      </div>
                                     </div>
                                     
                                     {/* Assists */}
-                                    <div className="flex items-center space-x-2">
-                                      <span className="text-gray-400 text-xs">Assist.:</span>
-                                      <button 
-                                        onClick={() => handleUpdatePlayerStats(playerId, 'assists', -1)}
-                                        className="w-6 h-6 bg-red-600 text-white rounded text-xs font-bold hover:bg-red-700 transition-colors"
-                                      >
-                                        -
-                                      </button>
-                                      <span className="text-white text-sm min-w-[20px] text-center font-semibold">
-                                        {playerStats[playerId]?.assists || 0}
-                                      </span>
-                                      <button 
-                                        onClick={() => handleUpdatePlayerStats(playerId, 'assists', 1)}
-                                        className="w-6 h-6 bg-green-600 text-white rounded text-xs font-bold hover:bg-green-700 transition-colors"
-                                      >
-                                        +
-                                      </button>
+                                    <div className="flex flex-col items-center space-y-2">
+                                      <span className="text-gray-400 text-sm font-medium">Assistências:</span>
+                                      <div className="flex items-center space-x-2">
+                                        <button 
+                                          onClick={() => handleUpdatePlayerStats(playerId, 'assists', -1)}
+                                          className="w-6 h-6 bg-red-600 text-white rounded text-xs font-bold hover:bg-red-700 transition-colors"
+                                        >
+                                          -
+                                        </button>
+                                        <span className="text-white text-lg min-w-[20px] text-center font-semibold">
+                                          {playerStats[playerId]?.assists || 0}
+                                        </span>
+                                        <button 
+                                          onClick={() => handleUpdatePlayerStats(playerId, 'assists', 1)}
+                                          className="w-6 h-6 bg-green-600 text-white rounded text-xs font-bold hover:bg-green-700 transition-colors"
+                                        >
+                                          +
+                                        </button>
+                                      </div>
                                     </div>
                                   </div>
                                 )}
@@ -1677,16 +2300,21 @@ export default function FutDetail() {
                     <label className="block text-white text-sm font-medium mb-2">
                       Buscar Usuário
                     </label>
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => {
-                        setSearchQuery(e.target.value);
-                        handleSearchUsers(e.target.value);
-                      }}
-                      className="w-full px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
-                      placeholder="Digite nome, email ou telefone"
-                    />
+                            <div className="flex space-x-2">
+                              <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="flex-1 px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
+                                placeholder="Digite email ou telefone"
+                              />
+                              <button
+                                onClick={handleSearchUsers}
+                                className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700 transition-colors"
+                              >
+                                Buscar
+                              </button>
+                            </div>
                   </div>
                   
                   {/* Search Results */}
@@ -1769,8 +2397,9 @@ export default function FutDetail() {
                   min="2"
                   max="10"
                   value={teamCount}
-                  onChange={(e) => setTeamCount(parseInt(e.target.value) || 2)}
+                  onChange={(e) => setTeamCount(e.target.value)}
                   className="w-full px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
+                  placeholder="Ex: 2"
                 />
               </div>
               
@@ -1780,11 +2409,12 @@ export default function FutDetail() {
                 </label>
                 <input
                   type="number"
-                  min="3"
+                  min="1"
                   max="15"
                   value={playersPerTeam}
-                  onChange={(e) => setPlayersPerTeam(parseInt(e.target.value) || 5)}
+                  onChange={(e) => setPlayersPerTeam(e.target.value)}
                   className="w-full px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
+                  placeholder="Ex: 5"
                 />
               </div>
               
@@ -1831,8 +2461,9 @@ export default function FutDetail() {
                   min="2"
                   max="10"
                   value={teamCount}
-                  onChange={(e) => setTeamCount(parseInt(e.target.value) || 2)}
+                  onChange={(e) => setTeamCount(e.target.value)}
                   className="w-full px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
+                  placeholder="Ex: 2"
                 />
               </div>
               
@@ -1842,11 +2473,12 @@ export default function FutDetail() {
                 </label>
                 <input
                   type="number"
-                  min="3"
+                  min="1"
                   max="15"
                   value={playersPerTeam}
-                  onChange={(e) => setPlayersPerTeam(parseInt(e.target.value) || 5)}
+                  onChange={(e) => setPlayersPerTeam(e.target.value)}
                   className="w-full px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
+                  placeholder="Ex: 5"
                 />
               </div>
               
@@ -1936,7 +2568,7 @@ export default function FutDetail() {
                       .filter(playerId => !Object.values(teams).flat().includes(playerId))
                       .map(playerId => {
                         const player = members[playerId];
-                        const canAdd = teams[selectedTeam].length < playersPerTeam;
+                        const canAdd = teams[selectedTeam].length < parseInt(playersPerTeam);
                         
                         return (
                           <div key={playerId} className="flex items-center justify-between bg-primary p-2 rounded">
@@ -1983,16 +2615,21 @@ export default function FutDetail() {
                 <label className="block text-white text-sm font-medium mb-2">
                   Buscar Usuário
                 </label>
-                <input
-                  type="text"
-                  value={memberSearchQuery}
-                  onChange={(e) => {
-                    setMemberSearchQuery(e.target.value);
-                    handleSearchMembers(e.target.value);
-                  }}
-                  className="w-full px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
-                  placeholder="Digite nome, email ou telefone"
-                />
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={memberSearchQuery}
+                    onChange={(e) => setMemberSearchQuery(e.target.value)}
+                    className="flex-1 px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
+                    placeholder="Digite email ou telefone"
+                  />
+                  <button
+                    onClick={handleSearchMembers}
+                    className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700 transition-colors"
+                  >
+                    Buscar
+                  </button>
+                </div>
               </div>
               
               {/* Search Results */}

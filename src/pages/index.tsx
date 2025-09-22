@@ -30,6 +30,9 @@ interface Fut {
   location?: string;
   description?: string;
   time?: string;
+  listReleased?: boolean;
+  confirmedMembers?: string[];
+  releasedVagas?: number;
 }
 
 export default function Home() {
@@ -265,22 +268,30 @@ export default function Home() {
                             <div className="flex items-center space-x-2">
                               <Users size={14} className="text-gray-400" />
                               <span className="text-white">
-                                {Object.keys(fut.members || {}).length} / {fut.maxVagas} confirmados
+                                {Object.keys(fut.members || {}).length} membros
+                              </span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Calendar size={14} className="text-gray-400" />
+                              <span className="text-gray-400 text-sm">
+                                {fut.maxVagas} vagas sugeridas
                               </span>
                             </div>
                           </div>
 
-                          {/* Progress Bar */}
-                          <div className="mt-3">
-                            <div className="w-full bg-gray-700 rounded-full h-2">
-                              <div 
-                                className="bg-secondary h-2 rounded-full" 
-                                style={{ 
-                                  width: `${Math.min((Object.keys(fut.members || {}).length / fut.maxVagas) * 100, 100)}%` 
-                                }}
-                              ></div>
+                          {/* Progress Bar - Only show if list is released */}
+                          {fut.listReleased && (
+                            <div className="mt-3">
+                              <div className="w-full bg-gray-700 rounded-full h-2">
+                                <div 
+                                  className="bg-secondary h-2 rounded-full" 
+                                  style={{ 
+                                    width: `${Math.min(((fut.confirmedMembers?.length || 0) / (fut.releasedVagas || fut.maxVagas)) * 100, 100)}%` 
+                                  }}
+                                ></div>
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </div>
 
                         {/* Right Side */}
@@ -399,22 +410,30 @@ export default function Home() {
                             <div className="flex items-center space-x-2">
                               <Users size={14} className="text-gray-400" />
                               <span className="text-white">
-                                {Object.keys(fut.members || {}).length} / {fut.maxVagas} confirmados
+                                {Object.keys(fut.members || {}).length} membros
+                              </span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Calendar size={14} className="text-gray-400" />
+                              <span className="text-gray-400 text-sm">
+                                {fut.maxVagas} vagas sugeridas
                               </span>
                             </div>
                           </div>
 
-                          {/* Progress Bar */}
-                          <div className="mt-3">
-                            <div className="w-full bg-gray-700 rounded-full h-2">
-                              <div 
-                                className="bg-secondary h-2 rounded-full" 
-                                style={{ 
-                                  width: `${Math.min((Object.keys(fut.members || {}).length / fut.maxVagas) * 100, 100)}%` 
-                                }}
-                              ></div>
+                          {/* Progress Bar - Only show if list is released */}
+                          {fut.listReleased && (
+                            <div className="mt-3">
+                              <div className="w-full bg-gray-700 rounded-full h-2">
+                                <div 
+                                  className="bg-secondary h-2 rounded-full" 
+                                  style={{ 
+                                    width: `${Math.min(((fut.confirmedMembers?.length || 0) / (fut.releasedVagas || fut.maxVagas)) * 100, 100)}%` 
+                                  }}
+                                ></div>
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </div>
 
                         {/* Right Side */}
