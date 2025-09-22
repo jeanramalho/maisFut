@@ -40,7 +40,7 @@ export default function FutDetail() {
   
   const [fut, setFut] = useState<Fut | null>(null);
   const [members, setMembers] = useState<Record<string, UserData>>({});
-  const [activeTab, setActiveTab] = useState<'fut' | 'members' | 'occurrences' | 'settings' | 'times' | 'data'>('fut');
+  const [activeTab, setActiveTab] = useState<'fut' | 'members' | 'occurrences' | 'settings' | 'times' | 'data' | 'ranking'>('fut');
   const [showImageModal, setShowImageModal] = useState(false);
   const [showGuestModal, setShowGuestModal] = useState(false);
   const [listReleased, setListReleased] = useState(false);
@@ -52,6 +52,8 @@ export default function FutDetail() {
   const [guestName, setGuestName] = useState('');
   const [guestEmail, setGuestEmail] = useState('');
   const [guestPhone, setGuestPhone] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
   const [showTeamDrawModal, setShowTeamDrawModal] = useState(false);
   const [showTeamSelectModal, setShowTeamSelectModal] = useState(false);
   const [teamCount, setTeamCount] = useState(2);
@@ -61,6 +63,12 @@ export default function FutDetail() {
   const [futEnded, setFutEnded] = useState(false);
   const [teamStats, setTeamStats] = useState<Record<string, { wins: number }>>({});
   const [playerStats, setPlayerStats] = useState<Record<string, { goals: number; assists: number }>>({});
+  const [votingOpen, setVotingOpen] = useState(false);
+  const [votingEnded, setVotingEnded] = useState(false);
+  const [playerVotes, setPlayerVotes] = useState<Record<string, number>>({});
+  const [userVotes, setUserVotes] = useState<Record<string, Record<string, number>>>({});
+  const [showRanking, setShowRanking] = useState(false);
+  const [ranking, setRanking] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -143,6 +151,11 @@ export default function FutDetail() {
   const handleReleaseList = () => {
     setListReleased(true);
     setConfirmedMembers([user?.uid || '']); // Admin se confirma automaticamente
+    
+    // If no specific vagas set, use fut's maxVagas
+    if (releasedVagas === 0) {
+      setReleasedVagas(fut?.maxVagas || 0);
+    }
   };
 
   const handleConfirmPresence = (isIn: boolean) => {
@@ -173,6 +186,33 @@ export default function FutDetail() {
     setGuestType(type);
     setShowGuestTypeModal(true);
     setShowGuestModal(false);
+  };
+
+  const handleSearchUsers = async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    try {
+      const usersRef = ref(database, 'users');
+      const snapshot = await get(usersRef);
+      const users = snapshot.val() || {};
+      
+      const results = Object.entries(users)
+        .filter(([uid, userData]: [string, any]) => 
+          userData.name?.toLowerCase().includes(query.toLowerCase()) ||
+          userData.email?.toLowerCase().includes(query.toLowerCase()) ||
+          userData.phone?.includes(query)
+        )
+        .map(([uid, userData]) => ({ uid, ...userData }))
+        .slice(0, 10); // Limit to 10 results
+      
+      setSearchResults(results);
+    } catch (error) {
+      console.error('Error searching users:', error);
+      setSearchResults([]);
+    }
   };
 
   const handleAddGuest = async () => {
@@ -237,6 +277,25 @@ export default function FutDetail() {
       setGuestPhone('');
       setGuestType(null);
       setShowGuestTypeModal(false);
+    } catch (error) {
+      alert('Erro ao adicionar convidado');
+    }
+  };
+
+  const handleAddSearchedUser = async (userData: any) => {
+    try {
+      setConfirmedMembers([...confirmedMembers, userData.uid]);
+      setMembers(prev => ({
+        ...prev,
+        [userData.uid]: { ...userData, isGuest: true, guestType: 'cadastrado' }
+      }));
+      
+      // Reset search
+      setSearchQuery('');
+      setSearchResults([]);
+      setShowGuestTypeModal(false);
+      
+      alert('Convidado cadastrado adicionado com sucesso!');
     } catch (error) {
       alert('Erro ao adicionar convidado');
     }
@@ -381,6 +440,88 @@ export default function FutDetail() {
   const handleEndFut = () => {
     setFutEnded(true);
     alert('Fut encerrado! Não é mais possível alterar os dados.');
+  };
+
+  const handleStartVoting = () => {
+    setVotingOpen(true);
+    // Initialize player votes
+    const initialVotes: Record<string, number> = {};
+    Object.values(teams).flat().forEach(playerId => {
+      initialVotes[playerId] = 0;
+    });
+    setPlayerVotes(initialVotes);
+  };
+
+  const handleEndVoting = () => {
+    setVotingEnded(true);
+    setVotingOpen(false);
+    alert('Votação encerrada!');
+  };
+
+  const handleVote = (playerId: string, rating: number) => {
+    if (!user?.uid || !votingOpen) return;
+    
+    setUserVotes(prev => ({
+      ...prev,
+      [user.uid]: {
+        ...prev[user.uid],
+        [playerId]: rating
+      }
+    }));
+  };
+
+  const handleGenerateRanking = () => {
+    // Calculate average votes for each player
+    const playerAverages: Record<string, number> = {};
+    
+    Object.entries(playerVotes).forEach(([playerId, totalVotes]) => {
+      const voteCount = Object.values(userVotes).filter(votes => votes[playerId]).length;
+      playerAverages[playerId] = voteCount > 0 ? totalVotes / voteCount : 0;
+    });
+
+    // Calculate scores (stars * 20 + goals * 10 + assists * 5)
+    const playerScores: Record<string, number> = {};
+    Object.entries(playerStats).forEach(([playerId, stats]) => {
+      const stars = playerAverages[playerId] || 0;
+      const goals = stats.goals || 0;
+      const assists = stats.assists || 0;
+      playerScores[playerId] = (stars * 20) + (goals * 10) + (assists * 5);
+    });
+
+    // Sort players by score
+    const sortedPlayers = Object.entries(playerScores)
+      .map(([playerId, score]) => ({
+        playerId,
+        score,
+        stars: playerAverages[playerId] || 0,
+        goals: playerStats[playerId]?.goals || 0,
+        assists: playerStats[playerId]?.assists || 0,
+        name: members[playerId]?.name || 'Convidado'
+      }))
+      .sort((a, b) => b.score - a.score);
+
+    setRanking(sortedPlayers);
+    setShowRanking(true);
+  };
+
+  const handleFinalizeFut = () => {
+    // Reset everything for next fut
+    setFutStarted(false);
+    setListReleased(false);
+    setTeams({});
+    setTeamStats({});
+    setPlayerStats({});
+    setFutEnded(false);
+    setVotingOpen(false);
+    setVotingEnded(false);
+    setPlayerVotes({});
+    setUserVotes({});
+    setShowRanking(false);
+    setRanking(null);
+    setConfirmedMembers([]);
+    setReleasedVagas(fut?.maxVagas || 0);
+    
+    alert('Fut finalizado! Pronto para o próximo.');
   };
 
   return (
@@ -530,20 +671,22 @@ export default function FutDetail() {
       {/* Tabs */}
       <div className="bg-primary-lighter border-b border-gray-700">
         <div className="px-6">
-          <div className="flex items-center space-x-1 overflow-x-auto">
+          <div className="flex items-center">
+            {/* Left Arrow - Fixed */}
             <button
               onClick={() => {
-                const tabs = isAdmin ? ['fut', 'members', 'occurrences', 'times', 'data', 'settings'] : ['members', 'occurrences'];
+                const tabs = isAdmin ? ['fut', 'times', 'data', 'members', 'ranking', 'occurrences', 'settings'] : ['members', 'occurrences'];
                 const currentIndex = tabs.indexOf(activeTab);
                 const prevIndex = currentIndex > 0 ? currentIndex - 1 : tabs.length - 1;
                 setActiveTab(tabs[prevIndex] as any);
               }}
-              className="text-gray-400 hover:text-white transition-colors p-1"
+              className="text-gray-400 hover:text-white transition-colors p-2 mr-2 flex-shrink-0"
             >
               <ChevronLeft size={16} />
             </button>
             
-            <div className="flex space-x-1 min-w-0">
+            {/* Tabs Container - Scrollable */}
+            <div className="flex space-x-1 overflow-x-auto flex-1 min-w-0">
               {isAdmin && (
                 <button
                   onClick={() => setActiveTab('fut')}
@@ -556,26 +699,6 @@ export default function FutDetail() {
                   Fut
                 </button>
               )}
-              <button
-                onClick={() => setActiveTab('members')}
-                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
-                  activeTab === 'members'
-                    ? 'bg-primary text-secondary border-b-2 border-secondary'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                Membros ({memberCount})
-              </button>
-              <button
-                onClick={() => setActiveTab('occurrences')}
-                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
-                  activeTab === 'occurrences'
-                    ? 'bg-primary text-secondary border-b-2 border-secondary'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                Partidas
-              </button>
               {isAdmin && futStarted && (
                 <>
                   <button
@@ -600,6 +723,38 @@ export default function FutDetail() {
                   </button>
                 </>
               )}
+              <button
+                onClick={() => setActiveTab('members')}
+                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
+                  activeTab === 'members'
+                    ? 'bg-primary text-secondary border-b-2 border-secondary'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                Membros ({memberCount})
+              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => setActiveTab('ranking')}
+                  className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
+                    activeTab === 'ranking'
+                      ? 'bg-primary text-secondary border-b-2 border-secondary'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  Ranking
+                </button>
+              )}
+              <button
+                onClick={() => setActiveTab('occurrences')}
+                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
+                  activeTab === 'occurrences'
+                    ? 'bg-primary text-secondary border-b-2 border-secondary'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                Partidas
+              </button>
               {isAdmin && (
                 <button
                   onClick={() => setActiveTab('settings')}
@@ -614,14 +769,15 @@ export default function FutDetail() {
               )}
             </div>
             
+            {/* Right Arrow - Fixed */}
             <button
               onClick={() => {
-                const tabs = isAdmin ? ['fut', 'members', 'occurrences', 'times', 'data', 'settings'] : ['members', 'occurrences'];
+                const tabs = isAdmin ? ['fut', 'times', 'data', 'members', 'ranking', 'occurrences', 'settings'] : ['members', 'occurrences'];
                 const currentIndex = tabs.indexOf(activeTab);
                 const nextIndex = currentIndex < tabs.length - 1 ? currentIndex + 1 : 0;
                 setActiveTab(tabs[nextIndex] as any);
               }}
-              className="text-gray-400 hover:text-white transition-colors p-1"
+              className="text-gray-400 hover:text-white transition-colors p-2 ml-2 flex-shrink-0"
             >
               <ChevronRight size={16} />
             </button>
@@ -633,63 +789,82 @@ export default function FutDetail() {
       <div className="px-6 py-6">
         {activeTab === 'fut' && isAdmin && (
           <div className="space-y-4">
-            {/* Next Game Section */}
-            <div className="bg-primary-lighter rounded-lg p-3">
-              <h3 className="text-white text-base font-semibold mb-3">Próximo Fut 23/09/2025</h3>
-              
-              <div className="space-y-3">
-                <div className="flex space-x-2">
-                  <input
-                    type="number"
-                    min="1"
-                    max={fut.maxVagas}
-                    value={releasedVagas}
-                    onChange={(e) => setReleasedVagas(parseInt(e.target.value) || fut.maxVagas)}
-                    className="flex-1 px-2 py-1 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary text-sm"
-                    placeholder="Vagas"
-                  />
-                  <button 
-                    onClick={handleReleaseList}
-                    disabled={listReleased}
-                    className="bg-secondary text-primary px-3 py-1 rounded text-sm font-medium hover:bg-secondary-darker transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {listReleased ? 'Liberada' : 'Liberar'}
-                  </button>
-                </div>
-                
-                {/* Action buttons for admin */}
-                {listReleased && (
-                  <div className="flex space-x-2">
-                    <button 
-                      onClick={() => handleConfirmPresence(true)}
-                      className={`flex-1 py-1 rounded text-sm font-medium transition-colors ${
-                        confirmedMembers.includes(user?.uid || '') 
-                          ? 'bg-green-700 text-white' 
-                          : 'bg-green-600 text-black hover:bg-green-700'
-                      }`}
-                    >
-                      To Dentro
-                    </button>
-                    <button 
-                      onClick={() => handleConfirmPresence(false)}
-                      className={`flex-1 py-1 rounded text-sm font-medium transition-colors ${
-                        !confirmedMembers.includes(user?.uid || '') 
-                          ? 'bg-red-700 text-white' 
-                          : 'bg-red-600 text-black hover:bg-red-700'
-                      }`}
-                    >
-                      To Fora
-                    </button>
-                    <button 
-                      onClick={() => setShowGuestModal(true)}
-                      className="bg-blue-600 text-white px-3 py-1 rounded text-sm font-medium hover:bg-blue-700 transition-colors"
-                    >
-                      + Convidado
-                    </button>
+            {!futStarted ? (
+              <>
+                {/* Next Game Section */}
+                <div className="bg-primary-lighter rounded-lg p-3">
+                  <h3 className="text-white text-base font-semibold mb-3">Próximo Fut 23/09/2025</h3>
+                  
+                  <div className="space-y-3">
+                    <div className="flex space-x-2">
+                      <input
+                        type="number"
+                        min="1"
+                        max={fut.maxVagas}
+                        value={releasedVagas}
+                        onChange={(e) => setReleasedVagas(parseInt(e.target.value) || fut.maxVagas)}
+                        className="flex-1 px-2 py-1 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary text-sm"
+                        placeholder="Vagas"
+                      />
+                      <button 
+                        onClick={handleReleaseList}
+                        disabled={listReleased}
+                        className="bg-secondary text-primary px-3 py-1 rounded text-sm font-medium hover:bg-secondary-darker transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {listReleased ? 'Liberada' : 'Liberar'}
+                      </button>
+                    </div>
+                    
+                    {/* Action buttons for admin */}
+                    {listReleased && (
+                      <div className="flex space-x-2">
+                        <button 
+                          onClick={() => handleConfirmPresence(true)}
+                          className={`flex-1 py-1 rounded text-sm font-medium transition-colors ${
+                            confirmedMembers.includes(user?.uid || '') 
+                              ? 'bg-green-700 text-white' 
+                              : 'bg-green-600 text-black hover:bg-green-700'
+                          }`}
+                        >
+                          To Dentro
+                        </button>
+                        <button 
+                          onClick={() => handleConfirmPresence(false)}
+                          className={`flex-1 py-1 rounded text-sm font-medium transition-colors ${
+                            !confirmedMembers.includes(user?.uid || '') 
+                              ? 'bg-red-700 text-white' 
+                              : 'bg-red-600 text-black hover:bg-red-700'
+                          }`}
+                        >
+                          To Fora
+                        </button>
+                        <button 
+                          onClick={() => setShowGuestModal(true)}
+                          className="bg-blue-600 text-white px-3 py-1 rounded text-sm font-medium hover:bg-blue-700 transition-colors"
+                        >
+                          + Convidado
+                        </button>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
+              </>
+            ) : (
+              /* Read-only view after fut started */
+              <div className="bg-primary-lighter rounded-lg p-3">
+                <h3 className="text-white text-base font-semibold mb-3">Fut em Andamento - 23/09/2025</h3>
+                
+                <div className="space-y-3">
+                  <div className="text-gray-400 text-sm">
+                    Vagas: {releasedVagas}
+                  </div>
+                  
+                  <div className="text-gray-400 text-sm">
+                    Confirmados: {confirmedMembers.length}
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Confirmed List Section - Only show after list is released */}
             {listReleased && (
@@ -775,7 +950,9 @@ export default function FutDetail() {
             </div>
 
             <div className="space-y-3">
-              {Object.entries(members).map(([memberId, memberData]) => (
+              {Object.entries(members)
+                .filter(([memberId, memberData]) => !memberData.isGuest) // Exclude guests
+                .map(([memberId, memberData]) => (
                 <div
                   key={memberId}
                   className="bg-primary-lighter rounded-lg p-4 border border-gray-700"
@@ -924,90 +1101,265 @@ export default function FutDetail() {
                     Encerrar Fut
                   </button>
                 )}
+
+                {futEnded && !votingOpen && !votingEnded && (
+                  <button 
+                    onClick={handleStartVoting}
+                    className="w-full bg-blue-600 text-white py-2 rounded text-sm font-medium hover:bg-blue-700 transition-colors"
+                  >
+                    Liberar Votação
+                  </button>
+                )}
+
+                {votingOpen && (
+                  <button 
+                    onClick={handleEndVoting}
+                    className="w-full bg-yellow-600 text-white py-2 rounded text-sm font-medium hover:bg-yellow-700 transition-colors"
+                  >
+                    Encerrar Votação
+                  </button>
+                )}
+
+                {votingEnded && !showRanking && (
+                  <button 
+                    onClick={handleGenerateRanking}
+                    className="w-full bg-green-600 text-white py-2 rounded text-sm font-medium hover:bg-green-700 transition-colors"
+                  >
+                    Gerar Ranking
+                  </button>
+                )}
+
+                {showRanking && (
+                  <button 
+                    onClick={handleFinalizeFut}
+                    className="w-full bg-purple-600 text-white py-2 rounded text-sm font-medium hover:bg-purple-700 transition-colors"
+                  >
+                    Finalizar Fut
+                  </button>
+                )}
+
+                {/* Voting Section */}
+                {votingOpen && (
+                  <div className="bg-primary-lighter rounded-lg p-4">
+                    <h3 className="text-white text-lg font-semibold mb-4">Votação - Avalie os Jogadores</h3>
+                    <div className="space-y-4">
+                      {Object.values(teams).flat().map((playerId) => {
+                        const player = members[playerId];
+                        const currentVote = userVotes[user?.uid || '']?.[playerId] || 0;
+                        
+                        return (
+                          <div key={playerId} className="bg-primary p-3 rounded-lg">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center">
+                                  <span className="text-primary font-semibold text-xs">
+                                    {player?.name?.charAt(0).toUpperCase() || 'C'}
+                                  </span>
+                                </div>
+                                <span className="text-white text-sm font-medium">{player?.name || 'Convidado'}</span>
+                              </div>
+                              
+                              <div className="flex items-center space-x-1">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                  <button
+                                    key={star}
+                                    onClick={() => handleVote(playerId, star)}
+                                    className={`w-8 h-8 rounded text-lg ${
+                                      star <= currentVote
+                                        ? 'text-yellow-400'
+                                        : 'text-gray-400 hover:text-yellow-300'
+                                    }`}
+                                  >
+                                    ★
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Ranking Section */}
+                {showRanking && ranking && (
+                  <div className="bg-primary-lighter rounded-lg p-4">
+                    <h3 className="text-white text-lg font-semibold mb-4">Ranking Final</h3>
+                    <div className="space-y-3">
+                      {ranking.slice(0, 3).map((player: any, index: number) => (
+                        <div key={player.playerId} className="bg-primary p-3 rounded-lg">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center">
+                                <span className="text-primary font-semibold text-xs">
+                                  {player.name?.charAt(0).toUpperCase() || 'C'}
+                                </span>
+                              </div>
+                              <div>
+                                <div className="text-white text-sm font-medium">{player.name}</div>
+                                <div className="text-gray-400 text-xs">
+                                  {player.goals} gols • {player.assists} assistências • {player.stars.toFixed(1)} estrelas
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="text-right">
+                              <div className="text-secondary font-semibold text-lg">{player.score} pts</div>
+                              <div className="text-gray-400 text-xs">
+                                {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'} #{index + 1}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 
-                <div className="space-y-4">
-                  {Object.entries(teams).map(([teamName, players]) => (
-                    <div key={teamName} className="bg-primary-lighter rounded-lg p-3">
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-white font-semibold">{teamName}</h3>
+                <div className="space-y-6">
+                  {Object.entries(teams).map(([teamName, players], teamIndex) => (
+                    <div key={teamName} className="bg-primary-lighter rounded-lg p-4">
+                      {/* Team Header */}
+                      <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-600">
+                        <h3 className="text-white font-semibold text-lg">{teamName}</h3>
                         {!futEnded && (
-                          <div className="flex items-center space-x-2">
-                            <button 
-                              onClick={() => handleUpdateTeamWins(teamName, -1)}
-                              className="w-6 h-6 bg-red-600 text-white rounded text-xs font-bold hover:bg-red-700 transition-colors"
-                            >
-                              -
-                            </button>
-                            <span className="text-white font-semibold min-w-[20px] text-center">
-                              {teamStats[teamName]?.wins || 0}
-                            </span>
-                            <button 
-                              onClick={() => handleUpdateTeamWins(teamName, 1)}
-                              className="w-6 h-6 bg-green-600 text-white rounded text-xs font-bold hover:bg-green-700 transition-colors"
-                            >
-                              +
-                            </button>
-                            <span className="text-gray-400 text-sm ml-2">Vitórias</span>
+                          <div className="flex items-center space-x-3">
+                            <span className="text-gray-400 text-sm">Vitórias:</span>
+                            <div className="flex items-center space-x-2">
+                              <button 
+                                onClick={() => handleUpdateTeamWins(teamName, -1)}
+                                className="w-7 h-7 bg-red-600 text-white rounded text-sm font-bold hover:bg-red-700 transition-colors"
+                              >
+                                -
+                              </button>
+                              <span className="text-white font-semibold min-w-[25px] text-center text-lg">
+                                {teamStats[teamName]?.wins || 0}
+                              </span>
+                              <button 
+                                onClick={() => handleUpdateTeamWins(teamName, 1)}
+                                className="w-7 h-7 bg-green-600 text-white rounded text-sm font-bold hover:bg-green-700 transition-colors"
+                              >
+                                +
+                              </button>
+                            </div>
                           </div>
                         )}
                       </div>
                       
-                      <div className="space-y-2">
-                        {players.map((playerId) => {
-                          const player = members[playerId];
-                          return (
-                            <div key={playerId} className="flex items-center justify-between">
-                              <span className="text-white text-sm">{player?.name || 'Convidado'}</span>
-                              {!futEnded && (
-                                <div className="flex items-center space-x-4">
-                                  <div className="flex items-center space-x-1">
-                                    <button 
-                                      onClick={() => handleUpdatePlayerStats(playerId, 'goals', -1)}
-                                      className="w-5 h-5 bg-red-600 text-white rounded text-xs font-bold hover:bg-red-700 transition-colors"
-                                    >
-                                      -
-                                    </button>
-                                    <span className="text-white text-sm min-w-[15px] text-center">
-                                      {playerStats[playerId]?.goals || 0}
-                                    </span>
-                                    <button 
-                                      onClick={() => handleUpdatePlayerStats(playerId, 'goals', 1)}
-                                      className="w-5 h-5 bg-green-600 text-white rounded text-xs font-bold hover:bg-green-700 transition-colors"
-                                    >
-                                      +
-                                    </button>
-                                    <span className="text-gray-400 text-xs ml-1">gols</span>
+                      {/* Players Section */}
+                      <div className="space-y-3">
+                        <h4 className="text-gray-300 text-sm font-medium uppercase tracking-wide">Jogadores</h4>
+                        <div className="space-y-2">
+                          {players.map((playerId) => {
+                            const player = members[playerId];
+                            return (
+                              <div key={playerId} className="bg-primary p-3 rounded-lg">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-3">
+                                    <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center">
+                                      <span className="text-primary font-semibold text-xs">
+                                        {player?.name?.charAt(0).toUpperCase() || 'C'}
+                                      </span>
+                                    </div>
+                                    <span className="text-white text-sm font-medium">{player?.name || 'Convidado'}</span>
                                   </div>
                                   
-                                  <div className="flex items-center space-x-1">
-                                    <button 
-                                      onClick={() => handleUpdatePlayerStats(playerId, 'assists', -1)}
-                                      className="w-5 h-5 bg-red-600 text-white rounded text-xs font-bold hover:bg-red-700 transition-colors"
-                                    >
-                                      -
-                                    </button>
-                                    <span className="text-white text-sm min-w-[15px] text-center">
-                                      {playerStats[playerId]?.assists || 0}
-                                    </span>
-                                    <button 
-                                      onClick={() => handleUpdatePlayerStats(playerId, 'assists', 1)}
-                                      className="w-5 h-5 bg-green-600 text-white rounded text-xs font-bold hover:bg-green-700 transition-colors"
-                                    >
-                                      +
-                                    </button>
-                                    <span className="text-gray-400 text-xs ml-1">assistências</span>
-                                  </div>
+                                  {!futEnded && (
+                                    <div className="flex items-center space-x-6">
+                                      {/* Goals */}
+                                      <div className="flex items-center space-x-2">
+                                        <span className="text-gray-400 text-xs">Gols:</span>
+                                        <button 
+                                          onClick={() => handleUpdatePlayerStats(playerId, 'goals', -1)}
+                                          className="w-6 h-6 bg-red-600 text-white rounded text-xs font-bold hover:bg-red-700 transition-colors"
+                                        >
+                                          -
+                                        </button>
+                                        <span className="text-white text-sm min-w-[20px] text-center font-semibold">
+                                          {playerStats[playerId]?.goals || 0}
+                                        </span>
+                                        <button 
+                                          onClick={() => handleUpdatePlayerStats(playerId, 'goals', 1)}
+                                          className="w-6 h-6 bg-green-600 text-white rounded text-xs font-bold hover:bg-green-700 transition-colors"
+                                        >
+                                          +
+                                        </button>
+                                      </div>
+                                      
+                                      {/* Assists */}
+                                      <div className="flex items-center space-x-2">
+                                        <span className="text-gray-400 text-xs">Assist.:</span>
+                                        <button 
+                                          onClick={() => handleUpdatePlayerStats(playerId, 'assists', -1)}
+                                          className="w-6 h-6 bg-red-600 text-white rounded text-xs font-bold hover:bg-red-700 transition-colors"
+                                        >
+                                          -
+                                        </button>
+                                        <span className="text-white text-sm min-w-[20px] text-center font-semibold">
+                                          {playerStats[playerId]?.assists || 0}
+                                        </span>
+                                        <button 
+                                          onClick={() => handleUpdatePlayerStats(playerId, 'assists', 1)}
+                                          className="w-6 h-6 bg-green-600 text-white rounded text-xs font-bold hover:bg-green-700 transition-colors"
+                                        >
+                                          +
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                          );
-                        })}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
+                      
+                      {/* Team Separator */}
+                      {teamIndex < Object.keys(teams).length - 1 && (
+                        <div className="mt-6 pt-4 border-t border-gray-600"></div>
+                      )}
                     </div>
                   ))}
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === 'ranking' && isAdmin && (
+          <div className="space-y-6">
+            <h3 className="text-white text-lg font-semibold">Rankings</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-primary-lighter rounded-lg p-4">
+                <h4 className="text-white font-semibold mb-3">Artilharia Geral</h4>
+                <div className="space-y-2">
+                  <div className="text-gray-400 text-sm">Em desenvolvimento...</div>
+                </div>
+              </div>
+              
+              <div className="bg-primary-lighter rounded-lg p-4">
+                <h4 className="text-white font-semibold mb-3">Assistências Gerais</h4>
+                <div className="space-y-2">
+                  <div className="text-gray-400 text-sm">Em desenvolvimento...</div>
+                </div>
+              </div>
+              
+              <div className="bg-primary-lighter rounded-lg p-4">
+                <h4 className="text-white font-semibold mb-3">Ranking por Dia</h4>
+                <div className="space-y-2">
+                  <div className="text-gray-400 text-sm">Em desenvolvimento...</div>
+                </div>
+              </div>
+              
+              <div className="bg-primary-lighter rounded-lg p-4">
+                <h4 className="text-white font-semibold mb-3">Ranking Geral</h4>
+                <div className="space-y-2">
+                  <div className="text-gray-400 text-sm">Em desenvolvimento...</div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -1136,31 +1488,48 @@ export default function FutDetail() {
                 <div className="space-y-3">
                   <div>
                     <label className="block text-white text-sm font-medium mb-2">
-                      Email
+                      Buscar Usuário
                     </label>
                     <input
-                      type="email"
-                      value={guestEmail}
-                      onChange={(e) => setGuestEmail(e.target.value)}
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        handleSearchUsers(e.target.value);
+                      }}
                       className="w-full px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
-                      placeholder="Digite o email"
+                      placeholder="Digite nome, email ou telefone"
                     />
                   </div>
-                  <div>
-                    <label className="block text-white text-sm font-medium mb-2">
-                      Telefone
-                    </label>
-                    <input
-                      type="tel"
-                      value={guestPhone}
-                      onChange={(e) => setGuestPhone(e.target.value)}
-                      className="w-full px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
-                      placeholder="Digite o telefone"
-                    />
-                  </div>
-                  <p className="text-gray-400 text-xs">
-                    Digite pelo menos um dos campos (email ou telefone)
-                  </p>
+                  
+                  {/* Search Results */}
+                  {searchResults.length > 0 && (
+                    <div className="max-h-40 overflow-y-auto space-y-2">
+                      {searchResults.map((user) => (
+                        <div key={user.uid} className="flex items-center justify-between bg-primary p-2 rounded">
+                          <div>
+                            <div className="text-white text-sm font-medium">{user.name}</div>
+                            <div className="text-gray-400 text-xs">{user.email}</div>
+                            {user.phone && (
+                              <div className="text-gray-400 text-xs">{user.phone}</div>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => handleAddSearchedUser(user)}
+                            className="bg-green-600 text-white px-3 py-1 rounded text-xs font-medium hover:bg-green-700 transition-colors"
+                          >
+                            Adicionar
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {searchQuery && searchResults.length === 0 && (
+                    <div className="text-gray-400 text-sm text-center py-2">
+                      Nenhum usuário encontrado
+                    </div>
+                  )}
                 </div>
               )}
               
