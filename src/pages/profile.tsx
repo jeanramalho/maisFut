@@ -198,7 +198,7 @@ export default function ProfileSettings() {
           <div className="flex flex-col items-center space-y-4">
             <div className="relative">
               {imagePreview ? (
-                <div className="w-30 h-30 rounded-full overflow-hidden">
+                <div className="w-30 h-30 rounded-full overflow-hidden flex-shrink-0">
                   <Image
                     src={imagePreview}
                     alt="Profile"
@@ -208,7 +208,7 @@ export default function ProfileSettings() {
                   />
                 </div>
               ) : (
-                <div className="w-30 h-30 bg-secondary rounded-full flex items-center justify-center">
+                <div className="w-30 h-30 bg-secondary rounded-full flex items-center justify-center flex-shrink-0">
                   <User size={48} className="text-primary" />
                 </div>
               )}
