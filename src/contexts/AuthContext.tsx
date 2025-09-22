@@ -62,6 +62,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signup = async (email: string, password: string, name: string, phone?: string) => {
+    // Check for existing email and phone
+    const usersRef = ref(database, 'users');
+    const snapshot = await get(usersRef);
+    const users = snapshot.val() || {};
+    
+    const existingUser = Object.values(users).find((user: any) => 
+      user.email === email || (phone && user.phone === phone)
+    );
+    
+    if (existingUser) {
+      const existingUserData = existingUser as UserData;
+      if (existingUserData.email === email && existingUserData.phone === phone) {
+        throw new Error('Já existe um usuário com este email e telefone. Deseja recuperar sua senha?');
+      } else if (existingUserData.email === email) {
+        throw new Error('Já existe um usuário com este email. Deseja recuperar sua senha?');
+      } else if (phone && existingUserData.phone === phone) {
+        throw new Error('Já existe um usuário com este telefone. Deseja recuperar sua senha?');
+      }
+    }
+
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 

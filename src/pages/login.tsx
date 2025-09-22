@@ -11,6 +11,7 @@ export default function Login() {
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showRecoverOption, setShowRecoverOption] = useState(false);
   
   const { login, signup } = useAuth();
   const router = useRouter();
@@ -23,12 +24,16 @@ export default function Login() {
     try {
       if (isLogin) {
         await login(email, password);
+        router.push('/');
       } else {
         await signup(email, password, name, phone);
+        router.push('/');
       }
-      router.push('/');
     } catch (error: any) {
       setError(error.message);
+      if (error.message.includes('Deseja recuperar sua senha?')) {
+        setShowRecoverOption(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -38,8 +43,13 @@ export default function Login() {
     <div className="min-h-screen bg-primary flex flex-col items-center justify-center px-6">
       {/* Logo */}
       <div className="mb-8">
-        <div className="w-32 h-32 bg-secondary rounded-full flex items-center justify-center">
-          <span className="text-primary text-4xl font-bold">+F</span>
+        <div className="w-24 h-24 relative">
+          <Image
+            src="/logo.png"
+            alt="+Fut Logo"
+            fill
+            className="object-contain"
+          />
         </div>
       </div>
 
@@ -86,7 +96,20 @@ export default function Login() {
           />
 
           {error && (
-            <div className="text-red-500 text-sm text-center">{error}</div>
+            <div className="text-red-500 text-sm text-center">
+              {error}
+              {showRecoverOption && (
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    onClick={() => router.push('/recover-password')}
+                    className="text-secondary hover:underline"
+                  >
+                    Recuperar senha
+                  </button>
+                </div>
+              )}
+            </div>
           )}
 
           <button
