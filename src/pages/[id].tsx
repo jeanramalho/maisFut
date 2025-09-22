@@ -69,6 +69,10 @@ export default function FutDetail() {
   const [userVotes, setUserVotes] = useState<Record<string, Record<string, number>>>({});
   const [showRanking, setShowRanking] = useState(false);
   const [ranking, setRanking] = useState<any>(null);
+  const [rankingType, setRankingType] = useState<'pontuacao' | 'artilharia' | 'assistencias' | 'vitorias'>('pontuacao');
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [memberSearchQuery, setMemberSearchQuery] = useState('');
+  const [memberSearchResults, setMemberSearchResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -301,6 +305,64 @@ export default function FutDetail() {
     }
   };
 
+  const handleSearchMembers = async (query: string) => {
+    if (!query.trim()) {
+      setMemberSearchResults([]);
+      return;
+    }
+
+    try {
+      const usersRef = ref(database, 'users');
+      const snapshot = await get(usersRef);
+      const users = snapshot.val() || {};
+      
+      const results = Object.entries(users)
+        .filter(([uid, userData]: [string, any]) => 
+          (userData.name?.toLowerCase().includes(query.toLowerCase()) ||
+          userData.email?.toLowerCase().includes(query.toLowerCase()) ||
+          userData.phone?.includes(query)) &&
+          !members[uid] // Not already a member
+        )
+        .map(([uid, userData]) => ({ uid, ...userData }))
+        .slice(0, 10); // Limit to 10 results
+      
+      setMemberSearchResults(results);
+    } catch (error) {
+      console.error('Error searching members:', error);
+      setMemberSearchResults([]);
+    }
+  };
+
+  const handleAddMember = async (userData: any) => {
+    try {
+      // Add to fut members
+      const futRef = ref(database, `futs/${id}/members/${userData.uid}`);
+      await set(futRef, {
+        name: userData.name,
+        email: userData.email,
+        phone: userData.phone,
+        photoURL: userData.photoURL,
+        position: userData.position,
+        joinedAt: new Date().toISOString()
+      });
+      
+      // Update local state
+      setMembers(prev => ({
+        ...prev,
+        [userData.uid]: userData
+      }));
+      
+      // Reset search
+      setMemberSearchQuery('');
+      setMemberSearchResults([]);
+      setShowAddMemberModal(false);
+      
+      alert('Membro adicionado com sucesso!');
+    } catch (error) {
+      alert('Erro ao adicionar membro');
+    }
+  };
+
   const handleTeamDraw = () => {
     if (!teamCount || !playersPerTeam) {
       alert('Por favor, preencha todos os campos');
@@ -470,37 +532,86 @@ export default function FutDetail() {
     }));
   };
 
-  const handleGenerateRanking = () => {
-    // Calculate average votes for each player
-    const playerAverages: Record<string, number> = {};
+  const handleGenerateRanking = (type: 'pontuacao' | 'artilharia' | 'assistencias' | 'vitorias' = 'pontuacao') => {
+    setRankingType(type);
     
-    Object.entries(playerVotes).forEach(([playerId, totalVotes]) => {
-      const voteCount = Object.values(userVotes).filter(votes => votes[playerId]).length;
-      playerAverages[playerId] = voteCount > 0 ? totalVotes / voteCount : 0;
-    });
+    if (type === 'vitorias') {
+      // Team wins ranking
+      const teamWins = Object.entries(teamStats)
+        .map(([teamName, stats]) => ({
+          teamName,
+          wins: stats.wins || 0
+        }))
+        .sort((a, b) => b.wins - a.wins);
+      
+      setRanking(teamWins);
+    } else {
+      // Calculate average votes for each player (only for members, not guests)
+      const playerAverages: Record<string, number> = {};
+      
+      Object.entries(playerStats).forEach(([playerId, stats]) => {
+        // Only calculate for members, not guests
+        if (members[playerId]?.isGuest) return;
+        
+        const votes = Object.values(userVotes).map(userVote => userVote[playerId]).filter(vote => vote);
+        playerAverages[playerId] = votes.length > 0 ? votes.reduce((sum, vote) => sum + vote, 0) / votes.length : 0;
+      });
 
-    // Calculate scores (stars * 20 + goals * 10 + assists * 5)
-    const playerScores: Record<string, number> = {};
-    Object.entries(playerStats).forEach(([playerId, stats]) => {
-      const stars = playerAverages[playerId] || 0;
-      const goals = stats.goals || 0;
-      const assists = stats.assists || 0;
-      playerScores[playerId] = (stars * 20) + (goals * 10) + (assists * 5);
-    });
+      let sortedPlayers: any[] = [];
 
-    // Sort players by score
-    const sortedPlayers = Object.entries(playerScores)
-      .map(([playerId, score]) => ({
-        playerId,
-        score,
-        stars: playerAverages[playerId] || 0,
-        goals: playerStats[playerId]?.goals || 0,
-        assists: playerStats[playerId]?.assists || 0,
-        name: members[playerId]?.name || 'Convidado'
-      }))
-      .sort((a, b) => b.score - a.score);
+      if (type === 'pontuacao') {
+        // Calculate scores (stars * 20 + goals * 10 + assists * 5)
+        const playerScores: Record<string, number> = {};
+        Object.entries(playerStats).forEach(([playerId, stats]) => {
+          // Only calculate for members, not guests
+          if (members[playerId]?.isGuest) return;
+          
+          const stars = playerAverages[playerId] || 0;
+          const goals = stats.goals || 0;
+          const assists = stats.assists || 0;
+          playerScores[playerId] = (stars * 20) + (goals * 10) + (assists * 5);
+        });
 
-    setRanking(sortedPlayers);
+        // Sort players by score (only members)
+        sortedPlayers = Object.entries(playerScores)
+          .map(([playerId, score]) => ({
+            playerId,
+            score,
+            stars: playerAverages[playerId] || 0,
+            goals: playerStats[playerId]?.goals || 0,
+            assists: playerStats[playerId]?.assists || 0,
+            name: members[playerId]?.name || 'Convidado'
+          }))
+          .sort((a, b) => b.score - a.score);
+      } else if (type === 'artilharia') {
+        // Goals ranking
+        sortedPlayers = Object.entries(playerStats)
+          .filter(([playerId]) => !members[playerId]?.isGuest)
+          .map(([playerId, stats]) => ({
+            playerId,
+            goals: stats.goals || 0,
+            assists: playerStats[playerId]?.assists || 0,
+            stars: playerAverages[playerId] || 0,
+            name: members[playerId]?.name || 'Convidado'
+          }))
+          .sort((a, b) => b.goals - a.goals);
+      } else if (type === 'assistencias') {
+        // Assists ranking
+        sortedPlayers = Object.entries(playerStats)
+          .filter(([playerId]) => !members[playerId]?.isGuest)
+          .map(([playerId, stats]) => ({
+            playerId,
+            goals: stats.goals || 0,
+            assists: playerStats[playerId]?.assists || 0,
+            stars: playerAverages[playerId] || 0,
+            name: members[playerId]?.name || 'Convidado'
+          }))
+          .sort((a, b) => b.assists - a.assists);
+      }
+
+      setRanking(sortedPlayers);
+    }
+    
     setShowRanking(true);
   };
 
@@ -675,7 +786,7 @@ export default function FutDetail() {
             {/* Left Arrow - Fixed */}
             <button
               onClick={() => {
-                const tabs = isAdmin ? ['fut', 'times', 'data', 'members', 'ranking', 'occurrences', 'settings'] : ['members', 'occurrences'];
+                const tabs = isAdmin ? ['fut', 'times', 'data', 'members', 'ranking', 'settings'] : ['members'];
                 const currentIndex = tabs.indexOf(activeTab);
                 const prevIndex = currentIndex > 0 ? currentIndex - 1 : tabs.length - 1;
                 setActiveTab(tabs[prevIndex] as any);
@@ -692,7 +803,7 @@ export default function FutDetail() {
                   onClick={() => setActiveTab('fut')}
                   className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
                     activeTab === 'fut'
-                      ? 'bg-primary text-secondary border-b-2 border-secondary'
+                      ? 'bg-primary text-secondary'
                       : 'text-gray-400 hover:text-white'
                   }`}
                 >
@@ -705,7 +816,7 @@ export default function FutDetail() {
                     onClick={() => setActiveTab('times')}
                     className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
                       activeTab === 'times'
-                        ? 'bg-primary text-secondary border-b-2 border-secondary'
+                        ? 'bg-primary text-secondary'
                         : 'text-gray-400 hover:text-white'
                     }`}
                   >
@@ -715,7 +826,7 @@ export default function FutDetail() {
                     onClick={() => setActiveTab('data')}
                     className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
                       activeTab === 'data'
-                        ? 'bg-primary text-secondary border-b-2 border-secondary'
+                        ? 'bg-primary text-secondary'
                         : 'text-gray-400 hover:text-white'
                     }`}
                   >
@@ -727,7 +838,7 @@ export default function FutDetail() {
                 onClick={() => setActiveTab('members')}
                 className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
                   activeTab === 'members'
-                    ? 'bg-primary text-secondary border-b-2 border-secondary'
+                    ? 'bg-primary text-secondary'
                     : 'text-gray-400 hover:text-white'
                 }`}
               >
@@ -738,29 +849,19 @@ export default function FutDetail() {
                   onClick={() => setActiveTab('ranking')}
                   className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
                     activeTab === 'ranking'
-                      ? 'bg-primary text-secondary border-b-2 border-secondary'
+                      ? 'bg-primary text-secondary'
                       : 'text-gray-400 hover:text-white'
                   }`}
                 >
                   Ranking
                 </button>
               )}
-              <button
-                onClick={() => setActiveTab('occurrences')}
-                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
-                  activeTab === 'occurrences'
-                    ? 'bg-primary text-secondary border-b-2 border-secondary'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                Partidas
-              </button>
               {isAdmin && (
                 <button
                   onClick={() => setActiveTab('settings')}
                   className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
                     activeTab === 'settings'
-                      ? 'bg-primary text-secondary border-b-2 border-secondary'
+                      ? 'bg-primary text-secondary'
                       : 'text-gray-400 hover:text-white'
                   }`}
                 >
@@ -772,7 +873,7 @@ export default function FutDetail() {
             {/* Right Arrow - Fixed */}
             <button
               onClick={() => {
-                const tabs = isAdmin ? ['fut', 'times', 'data', 'members', 'ranking', 'occurrences', 'settings'] : ['members', 'occurrences'];
+                const tabs = isAdmin ? ['fut', 'times', 'data', 'members', 'ranking', 'settings'] : ['members'];
                 const currentIndex = tabs.indexOf(activeTab);
                 const nextIndex = currentIndex < tabs.length - 1 ? currentIndex + 1 : 0;
                 setActiveTab(tabs[nextIndex] as any);
@@ -943,7 +1044,10 @@ export default function FutDetail() {
             <div className="flex items-center justify-between">
               <h3 className="text-white text-lg font-semibold">Membros</h3>
               {isAdmin && (
-                <button className="bg-secondary text-primary px-4 py-2 rounded-lg text-sm font-medium hover:bg-secondary-darker transition-colors">
+                <button 
+                  onClick={() => setShowAddMemberModal(true)}
+                  className="bg-secondary text-primary px-4 py-2 rounded-lg text-sm font-medium hover:bg-secondary-darker transition-colors"
+                >
                   Adicionar Membro
                 </button>
               )}
@@ -1143,7 +1247,9 @@ export default function FutDetail() {
                   <div className="bg-primary-lighter rounded-lg p-4">
                     <h3 className="text-white text-lg font-semibold mb-4">Votação - Avalie os Jogadores</h3>
                     <div className="space-y-4">
-                      {Object.values(teams).flat().map((playerId) => {
+                      {Object.values(teams).flat()
+                        .filter(playerId => !members[playerId]?.isGuest) // Only members, not guests
+                        .map((playerId) => {
                         const player = members[playerId];
                         const currentVote = userVotes[user?.uid || '']?.[playerId] || 0;
                         
@@ -1185,34 +1291,106 @@ export default function FutDetail() {
                 {/* Ranking Section */}
                 {showRanking && ranking && (
                   <div className="bg-primary-lighter rounded-lg p-4">
-                    <h3 className="text-white text-lg font-semibold mb-4">Ranking Final</h3>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-white text-lg font-semibold">
+                        {rankingType === 'pontuacao' ? 'Ranking de Pontuação' :
+                         rankingType === 'artilharia' ? 'Ranking de Artilharia' :
+                         rankingType === 'assistencias' ? 'Ranking de Assistências' :
+                         'Ranking de Vitórias'}
+                      </h3>
+                      <div className="flex space-x-2">
+                        <button 
+                          onClick={() => handleGenerateRanking('pontuacao')}
+                          className={`px-3 py-1 rounded text-xs font-medium ${
+                            rankingType === 'pontuacao' ? 'bg-secondary text-primary' : 'bg-gray-600 text-white'
+                          }`}
+                        >
+                          Pontuação
+                        </button>
+                        <button 
+                          onClick={() => handleGenerateRanking('artilharia')}
+                          className={`px-3 py-1 rounded text-xs font-medium ${
+                            rankingType === 'artilharia' ? 'bg-secondary text-primary' : 'bg-gray-600 text-white'
+                          }`}
+                        >
+                          Artilharia
+                        </button>
+                        <button 
+                          onClick={() => handleGenerateRanking('assistencias')}
+                          className={`px-3 py-1 rounded text-xs font-medium ${
+                            rankingType === 'assistencias' ? 'bg-secondary text-primary' : 'bg-gray-600 text-white'
+                          }`}
+                        >
+                          Assistências
+                        </button>
+                        <button 
+                          onClick={() => handleGenerateRanking('vitorias')}
+                          className={`px-3 py-1 rounded text-xs font-medium ${
+                            rankingType === 'vitorias' ? 'bg-secondary text-primary' : 'bg-gray-600 text-white'
+                          }`}
+                        >
+                          Vitórias
+                        </button>
+                      </div>
+                    </div>
+                    
                     <div className="space-y-3">
-                      {ranking.slice(0, 3).map((player: any, index: number) => (
-                        <div key={player.playerId} className="bg-primary p-3 rounded-lg">
+                      {ranking.slice(0, 3).map((item: any, index: number) => (
+                        <div key={item.playerId || item.teamName} className="bg-primary p-3 rounded-lg">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-3">
-                              <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center">
-                                <span className="text-primary font-semibold text-xs">
-                                  {player.name?.charAt(0).toUpperCase() || 'C'}
-                                </span>
+                              <div className="text-4xl">
+                                {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
                               </div>
-                              <div>
-                                <div className="text-white text-sm font-medium">{player.name}</div>
-                                <div className="text-gray-400 text-xs">
-                                  {player.goals} gols • {player.assists} assistências • {player.stars.toFixed(1)} estrelas
+                              {rankingType === 'vitorias' ? (
+                                <div>
+                                  <div className="text-white text-sm font-medium">{item.teamName}</div>
+                                  <div className="text-gray-400 text-xs">
+                                    {item.wins} vitórias
+                                  </div>
                                 </div>
-                              </div>
+                              ) : (
+                                <>
+                                  <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center">
+                                    <span className="text-primary font-semibold text-xs">
+                                      {item.name?.charAt(0).toUpperCase() || 'C'}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <div className="text-white text-sm font-medium">{item.name}</div>
+                                    <div className="text-gray-400 text-xs">
+                                      {rankingType === 'pontuacao' ? `${item.score} pts` :
+                                       rankingType === 'artilharia' ? `${item.goals} gols` :
+                                       `${item.assists} assistências`}
+                                    </div>
+                                  </div>
+                                </>
+                              )}
                             </div>
                             
                             <div className="text-right">
-                              <div className="text-secondary font-semibold text-lg">{player.score} pts</div>
+                              <div className="text-secondary font-semibold text-lg">
+                                {rankingType === 'pontuacao' ? item.score :
+                                 rankingType === 'artilharia' ? item.goals :
+                                 rankingType === 'assistencias' ? item.assists :
+                                 item.wins}
+                              </div>
                               <div className="text-gray-400 text-xs">
-                                {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'} #{index + 1}
+                                #{index + 1}
                               </div>
                             </div>
                           </div>
                         </div>
                       ))}
+                    </div>
+                    
+                    <div className="mt-4 flex justify-center">
+                      <button 
+                        onClick={() => {/* TODO: Generate image */}}
+                        className="bg-green-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-green-700 transition-colors"
+                      >
+                        Gerar Imagem
+                      </button>
                     </div>
                   </div>
                 )}
@@ -1251,67 +1429,76 @@ export default function FutDetail() {
                       <div className="space-y-3">
                         <h4 className="text-gray-300 text-sm font-medium uppercase tracking-wide">Jogadores</h4>
                         <div className="space-y-2">
-                          {players.map((playerId) => {
-                            const player = members[playerId];
-                            return (
-                              <div key={playerId} className="bg-primary p-3 rounded-lg">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center space-x-3">
-                                    <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center">
-                                      <span className="text-primary font-semibold text-xs">
-                                        {player?.name?.charAt(0).toUpperCase() || 'C'}
-                                      </span>
-                                    </div>
-                                    <span className="text-white text-sm font-medium">{player?.name || 'Convidado'}</span>
+                        {players
+                          .filter(playerId => !members[playerId]?.isGuest || members[playerId]?.guestType === 'cadastrado') // Only members and registered guests
+                          .map((playerId) => {
+                          const player = members[playerId];
+                          const isGuest = player?.isGuest;
+                          
+                          return (
+                            <div key={playerId} className="bg-primary p-3 rounded-lg">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                  <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center">
+                                    <span className="text-primary font-semibold text-xs">
+                                      {player?.name?.charAt(0).toUpperCase() || 'C'}
+                                    </span>
                                   </div>
-                                  
-                                  {!futEnded && (
-                                    <div className="flex items-center space-x-6">
-                                      {/* Goals */}
-                                      <div className="flex items-center space-x-2">
-                                        <span className="text-gray-400 text-xs">Gols:</span>
-                                        <button 
-                                          onClick={() => handleUpdatePlayerStats(playerId, 'goals', -1)}
-                                          className="w-6 h-6 bg-red-600 text-white rounded text-xs font-bold hover:bg-red-700 transition-colors"
-                                        >
-                                          -
-                                        </button>
-                                        <span className="text-white text-sm min-w-[20px] text-center font-semibold">
-                                          {playerStats[playerId]?.goals || 0}
-                                        </span>
-                                        <button 
-                                          onClick={() => handleUpdatePlayerStats(playerId, 'goals', 1)}
-                                          className="w-6 h-6 bg-green-600 text-white rounded text-xs font-bold hover:bg-green-700 transition-colors"
-                                        >
-                                          +
-                                        </button>
-                                      </div>
-                                      
-                                      {/* Assists */}
-                                      <div className="flex items-center space-x-2">
-                                        <span className="text-gray-400 text-xs">Assist.:</span>
-                                        <button 
-                                          onClick={() => handleUpdatePlayerStats(playerId, 'assists', -1)}
-                                          className="w-6 h-6 bg-red-600 text-white rounded text-xs font-bold hover:bg-red-700 transition-colors"
-                                        >
-                                          -
-                                        </button>
-                                        <span className="text-white text-sm min-w-[20px] text-center font-semibold">
-                                          {playerStats[playerId]?.assists || 0}
-                                        </span>
-                                        <button 
-                                          onClick={() => handleUpdatePlayerStats(playerId, 'assists', 1)}
-                                          className="w-6 h-6 bg-green-600 text-white rounded text-xs font-bold hover:bg-green-700 transition-colors"
-                                        >
-                                          +
-                                        </button>
-                                      </div>
-                                    </div>
-                                  )}
+                                  <div>
+                                    <span className="text-white text-sm font-medium">{player?.name || 'Convidado'}</span>
+                                    {isGuest && (
+                                      <span className="text-gray-400 text-xs ml-2">(Convidado)</span>
+                                    )}
+                                  </div>
                                 </div>
+                                
+                                {!futEnded && (
+                                  <div className="flex items-center space-x-6">
+                                    {/* Goals */}
+                                    <div className="flex items-center space-x-2">
+                                      <span className="text-gray-400 text-xs">Gols:</span>
+                                      <button 
+                                        onClick={() => handleUpdatePlayerStats(playerId, 'goals', -1)}
+                                        className="w-6 h-6 bg-red-600 text-white rounded text-xs font-bold hover:bg-red-700 transition-colors"
+                                      >
+                                        -
+                                      </button>
+                                      <span className="text-white text-sm min-w-[20px] text-center font-semibold">
+                                        {playerStats[playerId]?.goals || 0}
+                                      </span>
+                                      <button 
+                                        onClick={() => handleUpdatePlayerStats(playerId, 'goals', 1)}
+                                        className="w-6 h-6 bg-green-600 text-white rounded text-xs font-bold hover:bg-green-700 transition-colors"
+                                      >
+                                        +
+                                      </button>
+                                    </div>
+                                    
+                                    {/* Assists */}
+                                    <div className="flex items-center space-x-2">
+                                      <span className="text-gray-400 text-xs">Assist.:</span>
+                                      <button 
+                                        onClick={() => handleUpdatePlayerStats(playerId, 'assists', -1)}
+                                        className="w-6 h-6 bg-red-600 text-white rounded text-xs font-bold hover:bg-red-700 transition-colors"
+                                      >
+                                        -
+                                      </button>
+                                      <span className="text-white text-sm min-w-[20px] text-center font-semibold">
+                                        {playerStats[playerId]?.assists || 0}
+                                      </span>
+                                      <button 
+                                        onClick={() => handleUpdatePlayerStats(playerId, 'assists', 1)}
+                                        className="w-6 h-6 bg-green-600 text-white rounded text-xs font-bold hover:bg-green-700 transition-colors"
+                                      >
+                                        +
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
-                            );
-                          })}
+                            </div>
+                          );
+                        })}
                         </div>
                       </div>
                       
@@ -1766,6 +1953,74 @@ export default function FutDetail() {
                         );
                       })}
                   </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Member Modal */}
+      {showAddMemberModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+          <div className="bg-primary-lighter rounded-lg w-full max-w-md">
+            <div className="flex items-center justify-between p-4 border-b border-gray-600">
+              <h2 className="text-white text-xl font-semibold">Adicionar Membro</h2>
+              <button
+                onClick={() => {
+                  setShowAddMemberModal(false);
+                  setMemberSearchQuery('');
+                  setMemberSearchResults([]);
+                }}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-white text-sm font-medium mb-2">
+                  Buscar Usuário
+                </label>
+                <input
+                  type="text"
+                  value={memberSearchQuery}
+                  onChange={(e) => {
+                    setMemberSearchQuery(e.target.value);
+                    handleSearchMembers(e.target.value);
+                  }}
+                  className="w-full px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
+                  placeholder="Digite nome, email ou telefone"
+                />
+              </div>
+              
+              {/* Search Results */}
+              {memberSearchResults.length > 0 && (
+                <div className="max-h-40 overflow-y-auto space-y-2">
+                  {memberSearchResults.map((user) => (
+                    <div key={user.uid} className="flex items-center justify-between bg-primary p-2 rounded">
+                      <div>
+                        <div className="text-white text-sm font-medium">{user.name}</div>
+                        <div className="text-gray-400 text-xs">{user.email}</div>
+                        {user.phone && (
+                          <div className="text-gray-400 text-xs">{user.phone}</div>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleAddMember(user)}
+                        className="bg-green-600 text-white px-3 py-1 rounded text-xs font-medium hover:bg-green-700 transition-colors"
+                      >
+                        Adicionar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {memberSearchQuery && memberSearchResults.length === 0 && (
+                <div className="text-gray-400 text-sm text-center py-2">
+                  Nenhum usuário encontrado
                 </div>
               )}
             </div>
