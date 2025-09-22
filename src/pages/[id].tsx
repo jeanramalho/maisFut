@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import { ref, onValue, get } from 'firebase/database';
 import { useAuth } from '@/contexts/AuthContext';
 import { database } from '@/lib/firebase';
-import { ArrowLeft, Settings, Users, Calendar, MapPin, Crown } from 'lucide-react';
+import { ArrowLeft, Settings, Users, Calendar, MapPin, Crown, X } from 'lucide-react';
 import Image from 'next/image';
 
 interface Fut {
@@ -42,6 +42,10 @@ export default function FutDetail() {
   const [members, setMembers] = useState<Record<string, UserData>>({});
   const [activeTab, setActiveTab] = useState<'fut' | 'members' | 'occurrences' | 'settings'>('fut');
   const [showImageModal, setShowImageModal] = useState(false);
+  const [showGuestModal, setShowGuestModal] = useState(false);
+  const [listReleased, setListReleased] = useState(false);
+  const [releasedVagas, setReleasedVagas] = useState(fut?.maxVagas || 0);
+  const [confirmedMembers, setConfirmedMembers] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -121,6 +125,35 @@ export default function FutDetail() {
     return 'Recorrência não definida';
   };
 
+  const handleReleaseList = () => {
+    setListReleased(true);
+    setConfirmedMembers([user?.uid || '']); // Admin se confirma automaticamente
+  };
+
+  const handleConfirmPresence = (isIn: boolean) => {
+    if (!user?.uid) return;
+    
+    if (isIn) {
+      if (!confirmedMembers.includes(user.uid)) {
+        setConfirmedMembers([...confirmedMembers, user.uid]);
+      }
+    } else {
+      setConfirmedMembers(confirmedMembers.filter(id => id !== user.uid));
+    }
+  };
+
+  const handleShareList = () => {
+    const confirmedNames = confirmedMembers.map((memberId, index) => {
+      const member = members[memberId];
+      return `${index + 1} - ${member?.name || 'Convidado'}`;
+    }).join('\n');
+
+    const message = `Lista de confirmados - ${fut.name} - ${fut.time || '19:00'} - ${getRecurrenceText()} - 23/09/2025\n\n${confirmedNames}`;
+    
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
+  };
+
   return (
     <div className="min-h-screen bg-primary">
       {/* Header with back button */}
@@ -160,46 +193,46 @@ export default function FutDetail() {
             {/* Fut Info over blur */}
             <div className="absolute bottom-0 left-0 right-0 p-6">
               <div className="flex items-center space-x-2 mb-1">
-                <h2 className="text-white text-2xl font-bold">{fut.name}</h2>
+                <h2 className="text-white text-2xl font-bold drop-shadow-lg shadow-black">{fut.name}</h2>
                 {isAdmin && (
-                  <Crown size={20} className="text-yellow-500" />
+                  <Crown size={20} className="text-yellow-500 drop-shadow-lg shadow-black" />
                 )}
               </div>
               
               {fut.description && (
-                <p className="text-gray-200 mb-2 text-sm">{fut.description}</p>
+                <p className="text-white mb-2 text-sm drop-shadow-lg shadow-black font-medium">{fut.description}</p>
               )}
 
-              <div className="space-y-1 text-sm text-gray-300">
+              <div className="space-y-1 text-sm">
                 <div className="flex items-center space-x-2">
-                  <Calendar size={16} />
-                  <span>{getRecurrenceText()}</span>
+                  <Calendar size={16} className="text-white drop-shadow-lg shadow-black" />
+                  <span className="text-white drop-shadow-lg shadow-black font-medium">{getRecurrenceText()}</span>
                 </div>
                 
                 {fut.location && (
                   <div className="flex items-center space-x-2">
-                    <MapPin size={16} />
-                    <span>{fut.location}</span>
+                    <MapPin size={16} className="text-white drop-shadow-lg shadow-black" />
+                    <span className="text-white drop-shadow-lg shadow-black font-medium">{fut.location}</span>
                   </div>
                 )}
                 
                 <div className="flex items-center space-x-2">
-                  <Users size={16} />
-                  <span>{memberCount}/{fut.maxVagas} jogadores</span>
+                  <Users size={16} className="text-white drop-shadow-lg shadow-black" />
+                  <span className="text-white drop-shadow-lg shadow-black font-medium">{memberCount}/{fut.maxVagas} jogadores</span>
                 </div>
               </div>
 
               <div className="flex items-center space-x-2 mt-3">
-                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                <span className={`px-3 py-1 rounded-full text-xs font-medium drop-shadow-lg shadow-black ${
                   fut.type === 'mensal' 
-                    ? 'bg-blue-900 text-blue-300' 
-                    : 'bg-purple-900 text-purple-300'
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-purple-600 text-white'
                 }`}>
                   {fut.type === 'mensal' ? 'Fut Mensal' : 'Fut Avulso'}
                 </span>
                 
                 {fut.privacy === 'invite' && (
-                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-900 text-yellow-300">
+                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-600 text-white drop-shadow-lg shadow-black">
                     Privado
                   </span>
                 )}
@@ -320,93 +353,122 @@ export default function FutDetail() {
       {/* Tab Content */}
       <div className="px-6 py-6">
         {activeTab === 'fut' && isAdmin && (
-          <div className="space-y-6">
+          <div className="space-y-4">
             {/* Next Game Section */}
-            <div className="bg-primary-lighter rounded-lg p-4">
-              <h3 className="text-white text-lg font-semibold mb-4">Próximo Fut 23/09/2025</h3>
+            <div className="bg-primary-lighter rounded-lg p-3">
+              <h3 className="text-white text-base font-semibold mb-3">Próximo Fut 23/09/2025</h3>
               
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-white text-sm font-medium mb-2">
-                    Quantidade de vagas liberadas
-                  </label>
+              <div className="space-y-3">
+                <div className="flex space-x-2">
                   <input
                     type="number"
                     min="1"
                     max={fut.maxVagas}
-                    className="w-full px-3 py-2 bg-primary border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
-                    placeholder="Ex: 10"
+                    value={releasedVagas}
+                    onChange={(e) => setReleasedVagas(parseInt(e.target.value) || fut.maxVagas)}
+                    className="flex-1 px-2 py-1 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary text-sm"
+                    placeholder="Vagas"
                   />
+                  <button 
+                    onClick={handleReleaseList}
+                    disabled={listReleased}
+                    className="bg-secondary text-primary px-3 py-1 rounded text-sm font-medium hover:bg-secondary-darker transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {listReleased ? 'Liberada' : 'Liberar'}
+                  </button>
                 </div>
-                
-                <button className="w-full bg-secondary text-primary py-3 rounded-lg font-medium hover:bg-secondary-darker transition-colors">
-                  Liberar Lista
-                </button>
                 
                 {/* Action buttons for admin */}
-                <div className="flex space-x-3">
-                  <button className="flex-1 bg-green-600 text-black py-3 rounded-lg font-medium hover:bg-green-700 transition-colors">
-                    To Dentro
-                  </button>
-                  <button className="flex-1 bg-red-600 text-black py-3 rounded-lg font-medium hover:bg-red-700 transition-colors">
-                    To Fora
-                  </button>
-                </div>
-                
-                <button className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors">
-                  Adicionar Convidado
-                </button>
+                {listReleased && (
+                  <div className="flex space-x-2">
+                    <button 
+                      onClick={() => handleConfirmPresence(true)}
+                      className={`flex-1 py-1 rounded text-sm font-medium transition-colors ${
+                        confirmedMembers.includes(user?.uid || '') 
+                          ? 'bg-green-700 text-white' 
+                          : 'bg-green-600 text-black hover:bg-green-700'
+                      }`}
+                    >
+                      To Dentro
+                    </button>
+                    <button 
+                      onClick={() => handleConfirmPresence(false)}
+                      className={`flex-1 py-1 rounded text-sm font-medium transition-colors ${
+                        !confirmedMembers.includes(user?.uid || '') 
+                          ? 'bg-red-700 text-white' 
+                          : 'bg-red-600 text-black hover:bg-red-700'
+                      }`}
+                    >
+                      To Fora
+                    </button>
+                    <button 
+                      onClick={() => setShowGuestModal(true)}
+                      className="bg-blue-600 text-white px-3 py-1 rounded text-sm font-medium hover:bg-blue-700 transition-colors"
+                    >
+                      + Convidado
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Confirmed List Section */}
-            <div className="bg-primary-lighter rounded-lg p-4">
-              <h3 className="text-white text-lg font-semibold mb-4">Lista de Confirmados para o Fut 23/09/2025</h3>
-              
-              {/* Progress Bar */}
-              <div className="mb-4">
-                <div className="flex justify-between text-sm text-gray-400 mb-2">
-                  <span>Confirmados</span>
-                  <span>8/10</span>
-                </div>
-                <div className="w-full bg-gray-700 rounded-full h-3">
-                  <div 
-                    className="bg-secondary h-3 rounded-full" 
-                    style={{ width: '80%' }}
-                  ></div>
-                </div>
-              </div>
-              
-              {/* Confirmed Members List */}
-              <div className="space-y-3">
-                {Object.entries(members).slice(0, 5).map(([memberId, memberData]) => (
-                  <div key={memberId} className="flex items-center space-x-3">
-                    <div className="w-10 h-10 rounded-full overflow-hidden">
-                      {memberData.photoURL ? (
-                        <Image
-                          src={memberData.photoURL}
-                          alt={memberData.name}
-                          width={40}
-                          height={40}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-secondary rounded-full flex items-center justify-center">
-                          <span className="text-primary font-semibold text-sm">
-                            {memberData.name?.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    <span className="text-white font-medium">{memberData.name}</span>
+            {/* Confirmed List Section - Only show after list is released */}
+            {listReleased && (
+              <div className="bg-primary-lighter rounded-lg p-3">
+                <h3 className="text-white text-base font-semibold mb-3">Lista de Confirmados para o Fut 23/09/2025</h3>
+                
+                {/* Progress Bar */}
+                <div className="mb-3">
+                  <div className="flex justify-between text-sm text-gray-400 mb-1">
+                    <span>Confirmados</span>
+                    <span>{confirmedMembers.length}/{releasedVagas}</span>
                   </div>
-                ))}
+                  <div className="w-full bg-gray-700 rounded-full h-2">
+                    <div 
+                      className="bg-secondary h-2 rounded-full" 
+                      style={{ width: `${Math.min((confirmedMembers.length / releasedVagas) * 100, 100)}%` }}
+                    ></div>
+                  </div>
+                </div>
+                
+                {/* Confirmed Members List */}
+                <div className="space-y-2">
+                  {confirmedMembers.map((memberId, index) => {
+                    const memberData = members[memberId];
+                    return (
+                      <div key={memberId} className="flex items-center space-x-2">
+                        <span className="text-secondary font-bold text-sm w-6">{index + 1} -</span>
+                        <div className="w-8 h-8 rounded-full overflow-hidden">
+                          {memberData?.photoURL ? (
+                            <Image
+                              src={memberData.photoURL}
+                              alt={memberData.name}
+                              width={32}
+                              height={32}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-secondary rounded-full flex items-center justify-center">
+                              <span className="text-primary font-semibold text-xs">
+                                {memberData?.name?.charAt(0).toUpperCase() || 'C'}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-white font-medium text-sm">{memberData?.name || 'Convidado'}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                
+                <button 
+                  onClick={handleShareList}
+                  className="w-full mt-3 bg-green-600 text-white py-2 rounded text-sm font-medium hover:bg-green-700 transition-colors"
+                >
+                  Compartilhar Lista
+                </button>
               </div>
-              
-              <button className="w-full mt-4 bg-green-600 text-white py-3 rounded-lg font-medium hover:bg-green-700 transition-colors">
-                Compartilhar Lista
-              </button>
-            </div>
+            )}
           </div>
         )}
 
@@ -535,6 +597,38 @@ export default function FutDetail() {
             >
               ×
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Guest Modal */}
+      {showGuestModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+          <div className="bg-primary-lighter rounded-lg w-full max-w-md">
+            <div className="flex items-center justify-between p-4 border-b border-gray-600">
+              <h2 className="text-white text-xl font-semibold">Adicionar Convidado</h2>
+              <button
+                onClick={() => setShowGuestModal(false)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4">
+              <div className="space-y-2">
+                <button className="w-full bg-blue-600 text-white py-2 rounded text-sm font-medium hover:bg-blue-700 transition-colors">
+                  Convidado Avulso (Apenas Nome)
+                </button>
+                <button className="w-full bg-green-600 text-white py-2 rounded text-sm font-medium hover:bg-green-700 transition-colors">
+                  Convidado Cadastrado (Email/Telefone)
+                </button>
+              </div>
+              
+              <div className="text-center text-gray-400 text-sm">
+                Funcionalidade em desenvolvimento
+              </div>
+            </div>
           </div>
         </div>
       )}

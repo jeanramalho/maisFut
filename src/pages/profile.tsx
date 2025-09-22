@@ -5,6 +5,7 @@ import { updateProfile, deleteUser } from 'firebase/auth';
 import { ref as databaseRef, update as databaseUpdate, remove } from 'firebase/database';
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { auth, database, storage } from '@/lib/firebase';
+import { compressImage, validateImageSize } from '@/lib/imageCompression';
 import { ArrowLeft, Camera, Save, Trash2, User, Phone, Mail } from 'lucide-react';
 import Image from 'next/image';
 
@@ -57,13 +58,30 @@ export default function ProfileSettings() {
     { value: 'Atacante', label: 'Atacante' },
   ];
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setSelectedImage(file);
-      const reader = new FileReader();
-      reader.onload = () => setImagePreview(reader.result as string);
-      reader.readAsDataURL(file);
+      try {
+        setLoading(true);
+        
+        // Check if image needs compression
+        if (!validateImageSize(file, 5)) {
+          const compressedFile = await compressImage(file, 5);
+          setSelectedImage(compressedFile);
+          const reader = new FileReader();
+          reader.onload = () => setImagePreview(reader.result as string);
+          reader.readAsDataURL(compressedFile);
+        } else {
+          setSelectedImage(file);
+          const reader = new FileReader();
+          reader.onload = () => setImagePreview(reader.result as string);
+          reader.readAsDataURL(file);
+        }
+      } catch (error) {
+        setError('Erro ao processar a imagem. Tente novamente.');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 

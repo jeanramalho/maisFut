@@ -3,6 +3,7 @@ import { ref, push, set } from 'firebase/database';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '@/contexts/AuthContext';
 import { database, storage } from '@/lib/firebase';
+import { compressImage, validateImageSize } from '@/lib/imageCompression';
 import { X, Upload, Calendar, Users, MapPin, Lock, Globe } from 'lucide-react';
 
 interface CreateFutModalProps {
@@ -31,13 +32,30 @@ export default function CreateFutModal({ onClose, onSuccess }: CreateFutModalPro
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setSelectedImage(file);
-      const reader = new FileReader();
-      reader.onload = () => setImagePreview(reader.result as string);
-      reader.readAsDataURL(file);
+      try {
+        setLoading(true);
+        
+        // Check if image needs compression
+        if (!validateImageSize(file, 5)) {
+          const compressedFile = await compressImage(file, 5);
+          setSelectedImage(compressedFile);
+          const reader = new FileReader();
+          reader.onload = () => setImagePreview(reader.result as string);
+          reader.readAsDataURL(compressedFile);
+        } else {
+          setSelectedImage(file);
+          const reader = new FileReader();
+          reader.onload = () => setImagePreview(reader.result as string);
+          reader.readAsDataURL(file);
+        }
+      } catch (error) {
+        setError('Erro ao processar a imagem. Tente novamente.');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
