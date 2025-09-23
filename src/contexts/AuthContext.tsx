@@ -51,7 +51,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Listen to user data changes in real-time
         const userRef = ref(database, `users/${user.uid}`);
         unsubscribeUser = onValue(userRef, (snapshot) => {
-          setUserData(snapshot.val());
+          const data = snapshot.val();
+          setUserData(data);
         });
         
         setUser(user);
