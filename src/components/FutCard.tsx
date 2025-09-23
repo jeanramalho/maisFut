@@ -28,7 +28,11 @@ export default function FutCard({ fut }: FutCardProps) {
   const router = useRouter();
 
   const handleCardClick = () => {
-    router.push(`/${fut.id}`);
+    try {
+      router.push(`/${fut.id}`);
+    } catch (error) {
+      console.error('Error navigating to fut:', error);
+    }
   };
 
   // Calculate next occurrence date based on recurrence
@@ -68,7 +72,7 @@ export default function FutCard({ fut }: FutCardProps) {
     <div
       onClick={handleCardClick}
       className="relative rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
-      style={{ height: '208px' }}
+      style={{ height: '240px' }}
     >
       {/* Background Image */}
       {fut.photoURL && (
@@ -93,7 +97,7 @@ export default function FutCard({ fut }: FutCardProps) {
 
           {/* Fut Info */}
           <div className="flex-1 min-w-0 flex flex-col h-full">
-            <h3 className="text-white font-semibold text-base mb-1 truncate">{fut.name}</h3>
+            <h3 className="text-white font-semibold text-sm mb-1 truncate line-clamp-1">{fut.name}</h3>
             
             {fut.description && (
               <p className="text-gray-400 text-xs mb-2 line-clamp-1 flex-shrink-0">

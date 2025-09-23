@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
-import { ref, get, set } from 'firebase/database';
+import { ref, get, set, onValue } from 'firebase/database';
 import { auth, database } from '@/lib/firebase';
 
 interface AuthContextType {
@@ -44,20 +44,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let unsubscribeUser: (() => void) | undefined;
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        // Fetch user data from Realtime Database
+        // Listen to user data changes in real-time
         const userRef = ref(database, `users/${user.uid}`);
-        const snapshot = await get(userRef);
-        setUserData(snapshot.val());
+        unsubscribeUser = onValue(userRef, (snapshot) => {
+          setUserData(snapshot.val());
+        });
+        
+        setUser(user);
+        setLoading(false);
       } else {
+        if (unsubscribeUser) {
+          unsubscribeUser();
+        }
         setUserData(null);
+        setUser(user);
+        setLoading(false);
       }
-      setUser(user);
-      setLoading(false);
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      if (unsubscribeUser) {
+        unsubscribeUser();
+      }
+    };
   }, []);
 
   const login = async (email: string, password: string) => {

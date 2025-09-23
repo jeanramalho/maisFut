@@ -98,7 +98,7 @@ export default function Home() {
     if (user) {
       // Listen to user's futs
       const futsRef = ref(database, 'futs');
-      const unsubscribe = onValue(futsRef, (snapshot) => {
+      const unsubscribeFuts = onValue(futsRef, (snapshot) => {
         const futsData = snapshot.val() || {};
         const userFuts: Fut[] = [];
 
@@ -115,7 +115,20 @@ export default function Home() {
         setFuts(userFuts);
       });
 
-      return unsubscribe;
+      // Listen to user's stats for real-time updates
+      const userRef = ref(database, `users/${user.uid}`);
+      const unsubscribeUser = onValue(userRef, (snapshot) => {
+        const userData = snapshot.val();
+        if (userData) {
+          // Update userData in context by triggering a re-render
+          // This will be handled by the AuthContext
+        }
+      });
+
+      return () => {
+        unsubscribeFuts();
+        unsubscribeUser();
+      };
     }
   }, [user, loading, router]);
 
@@ -210,6 +223,7 @@ export default function Home() {
                   <div 
                     className="relative rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
                     onClick={() => router.push(`/${fut.id}`)}
+                    style={{ height: '240px' }}
                   >
                     {/* Background Image */}
                     {fut.photoURL && (
@@ -245,7 +259,7 @@ export default function Home() {
                         {/* Fut Info */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2 mb-1">
-                            <h3 className="text-white font-semibold text-lg">{fut.name}</h3>
+                            <h3 className="text-white font-semibold text-sm truncate line-clamp-1">{fut.name}</h3>
                           </div>
                           
                           <p className="text-gray-400 text-sm mb-2">
@@ -352,6 +366,7 @@ export default function Home() {
                   <div 
                     className="relative rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
                     onClick={() => router.push(`/${fut.id}`)}
+                    style={{ height: '240px' }}
                   >
                     {/* Background Image */}
                     {fut.photoURL && (
@@ -387,7 +402,7 @@ export default function Home() {
                         {/* Fut Info */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2 mb-1">
-                            <h3 className="text-white font-semibold text-lg">{fut.name}</h3>
+                            <h3 className="text-white font-semibold text-sm truncate line-clamp-1">{fut.name}</h3>
                           </div>
                           
                           <p className="text-gray-400 text-sm mb-2">

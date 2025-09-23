@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { ref, onValue, get, set } from 'firebase/database';
+import { ref, onValue, get, set, push, remove } from 'firebase/database';
 import { useAuth } from '@/contexts/AuthContext';
 import { database } from '@/lib/firebase';
 import { ArrowLeft, Settings, Users, Calendar, MapPin, Crown, X, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -10,13 +10,15 @@ interface Fut {
   id: string;
   name: string;
   photoURL?: string;
-  adminId: string;
+  adminId: string; // Original admin (creator)
+  admins: Record<string, boolean>; // All admins including original
   type: 'mensal' | 'avulso';
   recurrence?: {
     kind: 'weekly' | 'monthly';
     day: number;
   };
   maxVagas: number;
+  playersPerTeam?: number;
   privacy: 'public' | 'invite';
   members: Record<string, boolean>;
   location?: string;
@@ -42,7 +44,7 @@ export default function FutDetail() {
   
   const [fut, setFut] = useState<Fut | null>(null);
   const [members, setMembers] = useState<Record<string, UserData>>({});
-  const [activeTab, setActiveTab] = useState<'fut' | 'members' | 'occurrences' | 'settings' | 'times' | 'data' | 'ranking'>('fut');
+  const [activeTab, setActiveTab] = useState<'fut' | 'members' | 'occurrences' | 'settings' | 'times' | 'data' | 'ranking' | 'info' | 'announcements'>('fut');
   const [showImageModal, setShowImageModal] = useState(false);
   const [showGuestModal, setShowGuestModal] = useState(false);
   const [listReleased, setListReleased] = useState(false);
@@ -75,6 +77,27 @@ export default function FutDetail() {
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
   const [memberSearchResults, setMemberSearchResults] = useState<any[]>([]);
+  const [showEditInfoModal, setShowEditInfoModal] = useState(false);
+  const [editDescription, setEditDescription] = useState('');
+  const [editName, setEditName] = useState('');
+  const [editTime, setEditTime] = useState('');
+  const [editLocation, setEditLocation] = useState('');
+  const [editMaxVagas, setEditMaxVagas] = useState('');
+  const [editPlayersPerTeam, setEditPlayersPerTeam] = useState('');
+  const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
+  const [announcementTitle, setAnnouncementTitle] = useState('');
+  const [announcementMessage, setAnnouncementMessage] = useState('');
+  const [editingAnnouncement, setEditingAnnouncement] = useState<any>(null);
+  const [showMakeAdminModal, setShowMakeAdminModal] = useState(false);
+  const [selectedMemberForAdmin, setSelectedMemberForAdmin] = useState<any>(null);
+  const [showDeleteDataModal, setShowDeleteDataModal] = useState(false);
+  const [showDeleteFutModal, setShowDeleteFutModal] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [deletePassword, setDeletePassword] = useState('');
+  const [rankingView, setRankingView] = useState<'geral' | 'rodada' | 'fut'>('geral');
+  const [selectedDate, setSelectedDate] = useState('');
+  const [futHistory, setFutHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -82,18 +105,19 @@ export default function FutDetail() {
 
     const futRef = ref(database, `futs/${id}`);
     const unsubscribe = onValue(futRef, async (snapshot) => {
-      const futData = snapshot.val();
-      
-      if (!futData) {
-        router.push('/');
-        return;
-      }
+      try {
+        const futData = snapshot.val();
+        
+        if (!futData) {
+          router.push('/');
+          return;
+        }
 
-      // Check if user has access to this fut
-      if (!futData.members?.[user.uid] && futData.adminId !== user.uid) {
-        router.push('/');
-        return;
-      }
+        // Check if user has access to this fut
+        if (!futData.members?.[user.uid] && futData.adminId !== user.uid) {
+          router.push('/');
+          return;
+        }
 
       setFut({ id: id as string, ...futData });
 
@@ -163,6 +187,14 @@ export default function FutDetail() {
       }
 
       setLoading(false);
+      
+      // Load announcements and fut history
+      loadAnnouncements();
+      loadFutHistory();
+      } catch (error) {
+        console.error('Error loading fut data:', error);
+        setLoading(false);
+      }
     });
 
     return unsubscribe;
@@ -180,7 +212,8 @@ export default function FutDetail() {
     return null;
   }
 
-  const isAdmin = user?.uid === fut.adminId;
+  const isAdmin = user && fut && (fut.adminId === user.uid || fut.admins?.[user.uid]);
+  const isOriginalAdmin = user && fut && fut.adminId === user.uid;
   const memberCount = Object.keys(fut.members || {}).length;
 
   const getRecurrenceText = () => {
@@ -272,7 +305,7 @@ export default function FutDetail() {
   const handleShareList = () => {
     const confirmedNames = confirmedMembers.map((memberId, index) => {
       const member = members[memberId];
-      return `${index + 1} - ${member?.name || 'Convidado'}`;
+      return `${index + 1} - ${member?.name || 'VAGA'}`;
     }).join('\n');
 
     const message = `Lista de confirmados - ${fut.name} - ${fut.time || '19:00'} - ${getRecurrenceText()} - 23/09/2025\n\n${confirmedNames}`;
@@ -710,7 +743,7 @@ export default function FutDetail() {
       message += `${teamName}\n`;
       players.forEach((playerId, index) => {
         const player = members[playerId];
-        message += `${index + 1}- ${player?.name || 'Convidado'}\n`;
+        message += `${index + 1}- ${player?.name || 'VAGA'}\n`;
       });
       
       // Add VAGA if team is not full
@@ -881,8 +914,8 @@ export default function FutDetail() {
       const playerAverages: Record<string, number> = {};
       
       Object.entries(playerStats).forEach(([playerId, stats]) => {
-        // Only calculate for members, not guests
-        if (members[playerId]?.isGuest) return;
+        // Only calculate for real members of the fut, not guests or VAGA
+        if (members[playerId]?.isGuest || !members[playerId] || playerId === 'VAGA') return;
         
         const votes = Object.values(userVotes).map(userVote => userVote[playerId]).filter(vote => vote);
         playerAverages[playerId] = votes.length > 0 ? votes.reduce((sum, vote) => sum + vote, 0) / votes.length : 0;
@@ -894,8 +927,8 @@ export default function FutDetail() {
         // Calculate scores (stars * 20 + goals * 10 + assists * 5)
         const playerScores: Record<string, number> = {};
         Object.entries(playerStats).forEach(([playerId, stats]) => {
-          // Only calculate for members, not guests
-          if (members[playerId]?.isGuest) return;
+          // Only calculate for real members of the fut, not guests or VAGA
+          if (members[playerId]?.isGuest || !members[playerId] || playerId === 'VAGA') return;
           
           const stars = playerAverages[playerId] || 0;
           const goals = stats.goals || 0;
@@ -911,31 +944,31 @@ export default function FutDetail() {
             stars: playerAverages[playerId] || 0,
             goals: playerStats[playerId]?.goals || 0,
             assists: playerStats[playerId]?.assists || 0,
-            name: members[playerId]?.name || 'Convidado'
+            name: members[playerId]?.name || 'Jogador'
           }))
           .sort((a, b) => b.score - a.score);
       } else if (type === 'artilharia') {
         // Goals ranking
         sortedPlayers = Object.entries(playerStats)
-          .filter(([playerId]) => !members[playerId]?.isGuest)
+          .filter(([playerId]) => !members[playerId]?.isGuest && members[playerId] && playerId !== 'VAGA')
           .map(([playerId, stats]) => ({
             playerId,
             goals: stats.goals || 0,
             assists: playerStats[playerId]?.assists || 0,
             stars: playerAverages[playerId] || 0,
-            name: members[playerId]?.name || 'Convidado'
+            name: members[playerId]?.name || 'Jogador'
           }))
           .sort((a, b) => b.goals - a.goals);
       } else if (type === 'assistencias') {
         // Assists ranking
         sortedPlayers = Object.entries(playerStats)
-          .filter(([playerId]) => !members[playerId]?.isGuest)
+          .filter(([playerId]) => !members[playerId]?.isGuest && members[playerId] && playerId !== 'VAGA')
           .map(([playerId, stats]) => ({
             playerId,
             goals: stats.goals || 0,
             assists: playerStats[playerId]?.assists || 0,
             stars: playerAverages[playerId] || 0,
-            name: members[playerId]?.name || 'Convidado'
+            name: members[playerId]?.name || 'Jogador'
           }))
           .sort((a, b) => b.assists - a.assists);
       }
@@ -1197,10 +1230,510 @@ export default function FutDetail() {
       setConfirmedMembers([]);
       setReleasedVagas(fut?.maxVagas || 0);
       
+      // Redirect to Fut tab
+      setActiveTab('fut');
+      
       alert('Fut finalizado! Pronto para o próximo.');
     } catch (error) {
       console.error('Error finalizing fut:', error);
       alert('Erro ao finalizar fut');
+    }
+  };
+
+  const handleSaveInfo = async () => {
+    try {
+      const futRef = ref(database, `futs/${id}`);
+      await set(futRef, {
+        ...fut,
+        name: editName,
+        description: editDescription,
+        time: editTime,
+        location: editLocation,
+        maxVagas: parseInt(editMaxVagas) || fut?.maxVagas,
+        playersPerTeam: parseInt(editPlayersPerTeam) || fut?.playersPerTeam
+      });
+      
+      setFut(prev => prev ? { 
+        ...prev, 
+        name: editName,
+        description: editDescription,
+        time: editTime,
+        location: editLocation,
+        maxVagas: parseInt(editMaxVagas) || fut?.maxVagas,
+        playersPerTeam: parseInt(editPlayersPerTeam) || fut?.playersPerTeam
+      } : null);
+      setShowEditInfoModal(false);
+      alert('Informações atualizadas com sucesso!');
+    } catch (error) {
+      console.error('Error saving info:', error);
+      alert('Erro ao salvar informações');
+    }
+  };
+
+  const loadAnnouncements = async () => {
+    try {
+      const announcementsRef = ref(database, `futs/${id}/announcements`);
+      const snapshot = await get(announcementsRef);
+      if (snapshot.exists()) {
+        const announcementsData = snapshot.val();
+        const announcementsList = Object.entries(announcementsData).map(([key, value]: [string, any]) => ({
+          id: key,
+          ...value
+        }));
+        setAnnouncements(announcementsList.sort((a, b) => b.createdAt - a.createdAt));
+      }
+    } catch (error) {
+      console.error('Error loading announcements:', error);
+    }
+  };
+
+  const handleSaveAnnouncement = async () => {
+    try {
+      const announcementsRef = ref(database, `futs/${id}/announcements`);
+      
+      if (editingAnnouncement) {
+        // Edit existing announcement
+        await set(ref(database, `futs/${id}/announcements/${editingAnnouncement.id}`), {
+          ...editingAnnouncement,
+          title: announcementTitle,
+          message: announcementMessage,
+          updatedAt: Date.now()
+        });
+      } else {
+        // Create new announcement
+        const newAnnouncement = {
+          title: announcementTitle,
+          message: announcementMessage,
+          authorId: user?.uid,
+          authorName: user?.displayName || 'Administrador',
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        };
+        
+        const newAnnouncementRef = push(announcementsRef);
+        await set(newAnnouncementRef, newAnnouncement);
+      }
+      
+      setAnnouncementTitle('');
+      setAnnouncementMessage('');
+      setEditingAnnouncement(null);
+      setShowAnnouncementModal(false);
+      loadAnnouncements();
+      alert('Aviso salvo com sucesso!');
+    } catch (error) {
+      console.error('Error saving announcement:', error);
+      alert('Erro ao salvar aviso');
+    }
+  };
+
+  const handleDeleteAnnouncement = async (announcementId: string) => {
+    if (!confirm('Tem certeza que deseja excluir este aviso?')) return;
+    
+    try {
+      await remove(ref(database, `futs/${id}/announcements/${announcementId}`));
+      loadAnnouncements();
+      alert('Aviso excluído com sucesso!');
+    } catch (error) {
+      console.error('Error deleting announcement:', error);
+      alert('Erro ao excluir aviso');
+    }
+  };
+
+  const handleEditAnnouncement = (announcement: any) => {
+    setEditingAnnouncement(announcement);
+    setAnnouncementTitle(announcement.title);
+    setAnnouncementMessage(announcement.message);
+    setShowAnnouncementModal(true);
+  };
+
+  const handleMakeAdmin = async () => {
+    if (!selectedMemberForAdmin) return;
+    
+    try {
+      const futRef = ref(database, `futs/${id}`);
+      const updatedAdmins = {
+        ...fut?.admins,
+        [selectedMemberForAdmin.uid]: true
+      };
+      
+      await set(futRef, {
+        ...fut,
+        admins: updatedAdmins
+      });
+      
+      setFut(prev => prev ? { ...prev, admins: updatedAdmins } : null);
+      setShowMakeAdminModal(false);
+      setSelectedMemberForAdmin(null);
+      alert(`${selectedMemberForAdmin.name} agora é administrador!`);
+    } catch (error) {
+      console.error('Error making admin:', error);
+      alert('Erro ao tornar administrador');
+    }
+  };
+
+  const handleRemoveAdmin = async () => {
+    if (!selectedMemberForAdmin) return;
+    
+    // Check if trying to remove original admin
+    if (selectedMemberForAdmin.uid === fut?.adminId) {
+      alert('Não é possível remover os privilégios do administrador original!');
+      setShowMakeAdminModal(false);
+      setSelectedMemberForAdmin(null);
+      return;
+    }
+    
+    try {
+      const futRef = ref(database, `futs/${id}`);
+      const updatedAdmins = { ...fut?.admins };
+      delete updatedAdmins[selectedMemberForAdmin.uid];
+      
+      await set(futRef, {
+        ...fut,
+        admins: updatedAdmins
+      });
+      
+      setFut(prev => prev ? { ...prev, admins: updatedAdmins } : null);
+      setShowMakeAdminModal(false);
+      setSelectedMemberForAdmin(null);
+      alert(`${selectedMemberForAdmin.name} não é mais administrador!`);
+    } catch (error) {
+      console.error('Error removing admin:', error);
+      alert('Erro ao remover administrador');
+    }
+  };
+
+  const handleRemoveMember = async (memberId: string, memberName: string) => {
+    if (!confirm(`Tem certeza que deseja remover ${memberName} do fut?`)) return;
+    
+    try {
+      const futRef = ref(database, `futs/${id}`);
+      const updatedMembers = { ...fut?.members };
+      delete updatedMembers[memberId];
+      
+      // Also remove from admins if they are an admin
+      const updatedAdmins = { ...fut?.admins };
+      delete updatedAdmins[memberId];
+      
+      await set(futRef, {
+        ...fut,
+        members: updatedMembers,
+        admins: updatedAdmins
+      });
+      
+      setFut(prev => prev ? { 
+        ...prev, 
+        members: updatedMembers,
+        admins: updatedAdmins
+      } : null);
+      
+      alert(`${memberName} foi removido do fut!`);
+    } catch (error) {
+      console.error('Error removing member:', error);
+      alert('Erro ao remover membro');
+    }
+  };
+
+  const handleDeleteData = async () => {
+    if (deleteConfirmation !== 'EXCLUIR DADOS' || !deletePassword) {
+      alert('Confirmação inválida ou senha não informada');
+      return;
+    }
+
+    try {
+      const futRef = ref(database, `futs/${id}`);
+      await set(futRef, {
+        ...fut,
+        teams: {},
+        teamStats: {},
+        playerStats: {},
+        playerVotes: {},
+        userVotes: {},
+        ranking: null,
+        showRanking: false,
+        futStarted: false,
+        listReleased: false,
+        futEnded: false,
+        votingOpen: false,
+        votingEnded: false,
+        confirmedMembers: [],
+        releasedVagas: fut?.maxVagas || 0,
+        announcements: {}
+      });
+      
+      // Reset local state
+      setTeams({});
+      setTeamStats({});
+      setPlayerStats({});
+      setPlayerVotes({});
+      setUserVotes({});
+      setRanking(null);
+      setShowRanking(false);
+      setFutStarted(false);
+      setListReleased(false);
+      setFutEnded(false);
+      setVotingOpen(false);
+      setVotingEnded(false);
+      setConfirmedMembers([]);
+      setReleasedVagas(fut?.maxVagas || 0);
+      setAnnouncements([]);
+      
+      setShowDeleteDataModal(false);
+      setDeleteConfirmation('');
+      setDeletePassword('');
+      alert('Dados do fut excluídos com sucesso!');
+    } catch (error) {
+      console.error('Error deleting data:', error);
+      alert('Erro ao excluir dados');
+    }
+  };
+
+  const handleDeleteFut = async () => {
+    if (deleteConfirmation !== 'EXCLUIR FUT' || !deletePassword) {
+      alert('Confirmação inválida ou senha não informada');
+      return;
+    }
+
+    try {
+      const futRef = ref(database, `futs/${id}`);
+      await remove(futRef);
+      
+      alert('Fut excluído com sucesso!');
+      router.push('/');
+    } catch (error) {
+      console.error('Error deleting fut:', error);
+      alert('Erro ao excluir fut');
+    }
+  };
+
+  const loadFutHistory = async () => {
+    try {
+      const historyRef = ref(database, `futs/${id}/history`);
+      const snapshot = await get(historyRef);
+      if (snapshot.exists()) {
+        const historyData = snapshot.val();
+        const historyList = Object.entries(historyData).map(([key, value]: [string, any]) => ({
+          id: key,
+          ...value
+        }));
+        setFutHistory(historyList.sort((a, b) => b.date - a.date));
+      }
+    } catch (error) {
+      console.error('Error loading fut history:', error);
+    }
+  };
+
+  const generateGeneralRanking = async (type: 'pontuacao' | 'artilharia' | 'assistencias' | 'vitorias') => {
+    try {
+      // Load all fut history data
+      const historyRef = ref(database, `futs/${id}/history`);
+      const snapshot = await get(historyRef);
+      
+      if (!snapshot.exists()) {
+        setRanking([]);
+        return;
+      }
+
+      const historyData = snapshot.val();
+      const allPlayerStats: Record<string, { goals: number; assists: number; points: number; wins: number }> = {};
+
+      // Aggregate stats from all futs
+      Object.values(historyData).forEach((futData: any) => {
+        if (futData.playerStats) {
+          Object.entries(futData.playerStats).forEach(([playerId, stats]: [string, any]) => {
+            if (!allPlayerStats[playerId]) {
+              allPlayerStats[playerId] = { goals: 0, assists: 0, points: 0, wins: 0 };
+            }
+            allPlayerStats[playerId].goals += stats.goals || 0;
+            allPlayerStats[playerId].assists += stats.assists || 0;
+            allPlayerStats[playerId].points += (stats.goals || 0) * 10 + (stats.assists || 0) * 5;
+          });
+        }
+        if (futData.teamStats) {
+          Object.entries(futData.teamStats).forEach(([teamName, teamData]: [string, any]) => {
+            if (teamData.wins > 0 && futData.teams && futData.teams[teamName]) {
+              futData.teams[teamName].forEach((playerId: string) => {
+                if (!allPlayerStats[playerId]) {
+                  allPlayerStats[playerId] = { goals: 0, assists: 0, points: 0, wins: 0 };
+                }
+                allPlayerStats[playerId].wins += teamData.wins;
+              });
+            }
+          });
+        }
+      });
+
+      let sortedPlayers: any[] = [];
+
+      if (type === 'pontuacao') {
+        sortedPlayers = Object.entries(allPlayerStats)
+          .filter(([playerId]) => !members[playerId]?.isGuest && members[playerId] && playerId !== 'VAGA')
+          .map(([playerId, stats]) => ({
+            playerId,
+            score: stats.points,
+            goals: stats.goals,
+            assists: stats.assists,
+            wins: stats.wins,
+            name: members[playerId]?.name || 'Jogador'
+          }))
+          .sort((a, b) => b.score - a.score);
+      } else if (type === 'artilharia') {
+        sortedPlayers = Object.entries(allPlayerStats)
+          .filter(([playerId]) => !members[playerId]?.isGuest && members[playerId] && playerId !== 'VAGA')
+          .map(([playerId, stats]) => ({
+            playerId,
+            goals: stats.goals,
+            assists: stats.assists,
+            wins: stats.wins,
+            name: members[playerId]?.name || 'Jogador'
+          }))
+          .sort((a, b) => b.goals - a.goals);
+      } else if (type === 'assistencias') {
+        sortedPlayers = Object.entries(allPlayerStats)
+          .filter(([playerId]) => !members[playerId]?.isGuest && members[playerId] && playerId !== 'VAGA')
+          .map(([playerId, stats]) => ({
+            playerId,
+            goals: stats.goals,
+            assists: stats.assists,
+            wins: stats.wins,
+            name: members[playerId]?.name || 'Jogador'
+          }))
+          .sort((a, b) => b.assists - a.assists);
+      } else if (type === 'vitorias') {
+        sortedPlayers = Object.entries(allPlayerStats)
+          .filter(([playerId]) => !members[playerId]?.isGuest && members[playerId] && playerId !== 'VAGA')
+          .map(([playerId, stats]) => ({
+            playerId,
+            goals: stats.goals,
+            assists: stats.assists,
+            wins: stats.wins,
+            name: members[playerId]?.name || 'Jogador'
+          }))
+          .sort((a, b) => b.wins - a.wins);
+      }
+
+      setRanking(sortedPlayers);
+      setRankingType(type);
+    } catch (error) {
+      console.error('Error generating general ranking:', error);
+      alert('Erro ao gerar ranking geral');
+    }
+  };
+
+  const generateRoundRanking = async (type: 'pontuacao' | 'artilharia' | 'assistencias' | 'vitorias') => {
+    try {
+      // Get the most recent fut data
+      const historyRef = ref(database, `futs/${id}/history`);
+      const snapshot = await get(historyRef);
+      
+      if (!snapshot.exists()) {
+        setRanking([]);
+        return;
+      }
+
+      const historyData = snapshot.val();
+      const historyList = Object.values(historyData).sort((a: any, b: any) => b.date - a.date);
+      const lastFut = historyList[0];
+
+      if (!lastFut) {
+        setRanking([]);
+        return;
+      }
+
+      // Use the existing ranking logic for the last fut
+      await generateRanking(type, lastFut);
+    } catch (error) {
+      console.error('Error generating round ranking:', error);
+      alert('Erro ao gerar ranking da rodada');
+    }
+  };
+
+  const generateRanking = async (type: 'pontuacao' | 'artilharia' | 'assistencias' | 'vitorias', futData: any) => {
+    try {
+      // This is a simplified version of the existing ranking logic
+      // You can expand this based on your existing generateRanking function
+      const playerStats = futData.playerStats || {};
+      const teamStats = futData.teamStats || {};
+      const teams = futData.teams || {};
+      
+      let sortedPlayers: any[] = [];
+
+      if (type === 'pontuacao') {
+        const playerScores: Record<string, number> = {};
+        Object.entries(playerStats).forEach(([playerId, stats]: [string, any]) => {
+          if (!members[playerId]?.isGuest && members[playerId] && playerId !== 'VAGA') {
+            const goals = (stats as any).goals || 0;
+            const assists = (stats as any).assists || 0;
+            playerScores[playerId] = (goals * 10) + (assists * 5);
+          }
+        });
+
+        sortedPlayers = Object.entries(playerScores)
+          .map(([playerId, score]) => ({
+            playerId,
+            score,
+            goals: playerStats[playerId]?.goals || 0,
+            assists: playerStats[playerId]?.assists || 0,
+            name: members[playerId]?.name || 'Jogador'
+          }))
+          .sort((a, b) => b.score - a.score);
+      } else if (type === 'artilharia') {
+        sortedPlayers = Object.entries(playerStats)
+          .filter(([playerId]) => !members[playerId]?.isGuest && members[playerId] && playerId !== 'VAGA')
+          .map(([playerId, stats]) => ({
+            playerId,
+            goals: (stats as any).goals || 0,
+            assists: playerStats[playerId]?.assists || 0,
+            name: members[playerId]?.name || 'Jogador'
+          }))
+          .sort((a, b) => b.goals - a.goals);
+      } else if (type === 'assistencias') {
+        sortedPlayers = Object.entries(playerStats)
+          .filter(([playerId]) => !members[playerId]?.isGuest && members[playerId] && playerId !== 'VAGA')
+          .map(([playerId, stats]) => ({
+            playerId,
+            goals: (stats as any).goals || 0,
+            assists: (stats as any).assists || 0,
+            name: members[playerId]?.name || 'Jogador'
+          }))
+          .sort((a, b) => b.assists - a.assists);
+      } else if (type === 'vitorias') {
+        const playerWins: Record<string, number> = {};
+        Object.entries(teamStats).forEach(([teamName, teamData]: [string, any]) => {
+          if (teamData.wins > 0 && teams[teamName]) {
+            teams[teamName].forEach((playerId: string) => {
+              if (!members[playerId]?.isGuest && members[playerId] && playerId !== 'VAGA') {
+                if (!playerWins[playerId]) playerWins[playerId] = 0;
+                playerWins[playerId] += teamData.wins;
+              }
+            });
+          }
+        });
+
+        sortedPlayers = Object.entries(playerWins)
+          .map(([playerId, wins]) => ({
+            playerId,
+            wins,
+            goals: playerStats[playerId]?.goals || 0,
+            assists: playerStats[playerId]?.assists || 0,
+            name: members[playerId]?.name || 'Jogador'
+          }))
+          .sort((a, b) => b.wins - a.wins);
+      }
+
+      setRanking(sortedPlayers);
+      setRankingType(type);
+    } catch (error) {
+      console.error('Error generating ranking:', error);
+      alert('Erro ao gerar ranking');
+    }
+  };
+
+  const generateFutRanking = async (type: 'pontuacao' | 'artilharia' | 'assistencias' | 'vitorias', futData: any) => {
+    try {
+      await generateRanking(type, futData);
+    } catch (error) {
+      console.error('Error generating fut ranking:', error);
+      alert('Erro ao gerar ranking do fut');
     }
   };
 
@@ -1415,6 +1948,16 @@ export default function FutDetail() {
                 </>
               )}
               <button
+                onClick={() => setActiveTab('info')}
+                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
+                  activeTab === 'info'
+                    ? 'bg-primary text-secondary'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                Info
+              </button>
+              <button
                 onClick={() => setActiveTab('members')}
                 className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
                   activeTab === 'members'
@@ -1424,6 +1967,18 @@ export default function FutDetail() {
               >
                 Membros ({memberCount})
               </button>
+              {isAdmin && (
+                <button
+                  onClick={() => setActiveTab('announcements')}
+                  className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
+                    activeTab === 'announcements'
+                      ? 'bg-primary text-secondary'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  Avisos
+                </button>
+              )}
               {isAdmin && (
                 <button
                   onClick={() => setActiveTab('ranking')}
@@ -1619,6 +2174,59 @@ export default function FutDetail() {
           </div>
         )}
 
+        {activeTab === 'info' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-white text-lg font-semibold">Informações do Fut</h3>
+              {isAdmin && (
+                <button 
+                  onClick={() => {
+                    setEditName(fut?.name || '');
+                    setEditDescription(fut?.description || '');
+                    setEditTime(fut?.time || '');
+                    setEditLocation(fut?.location || '');
+                    setEditMaxVagas(fut?.maxVagas?.toString() || '');
+                    setEditPlayersPerTeam(fut?.playersPerTeam?.toString() || '');
+                    setShowEditInfoModal(true);
+                  }}
+                  className="bg-secondary text-primary px-4 py-2 rounded-lg text-sm font-medium hover:bg-secondary-darker transition-colors"
+                >
+                  Editar
+                </button>
+              )}
+            </div>
+            
+            <div className="bg-primary-lighter rounded-lg p-4">
+              <h4 className="text-white text-base font-semibold mb-3">Descrição</h4>
+              <p className="text-gray-300 text-sm leading-relaxed">
+                {fut?.description || 'Nenhuma descrição disponível.'}
+              </p>
+            </div>
+
+            <div className="bg-primary-lighter rounded-lg p-4">
+              <h4 className="text-white text-base font-semibold mb-3">Detalhes</h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Tipo:</span>
+                  <span className="text-white">{fut?.type === 'mensal' ? 'Fut Mensal' : 'Fut Avulso'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Horário:</span>
+                  <span className="text-white">{fut?.time || 'Não definido'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Jogadores por time:</span>
+                  <span className="text-white">{fut?.playersPerTeam || 'Não definido'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Máximo de vagas:</span>
+                  <span className="text-white">{fut?.maxVagas || 'Não definido'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'members' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -1639,7 +2247,15 @@ export default function FutDetail() {
                 .map(([memberId, memberData]) => (
                         <div
                           key={memberId}
-                          className="bg-primary-lighter rounded-lg p-4 border border-gray-700"
+                          className={`bg-primary-lighter rounded-lg p-4 border border-gray-700 ${
+                            isAdmin ? 'cursor-pointer hover:bg-primary hover:border-gray-600 transition-colors' : ''
+                          }`}
+                          onClick={() => {
+                            if (isAdmin) {
+                              setSelectedMemberForAdmin({ uid: memberId, name: memberData.name });
+                              setShowMakeAdminModal(true);
+                            }
+                          }}
                         >
                           <div className="flex items-center space-x-3">
                             {memberData.photoURL ? (
@@ -1666,20 +2282,85 @@ export default function FutDetail() {
                         {memberId === fut.adminId && (
                           <Crown size={16} className="text-yellow-500" />
                         )}
+                        {memberId !== fut.adminId && fut.admins?.[memberId] && (
+                          <Crown size={16} className="text-green-500" />
+                        )}
                       </div>
                       {memberData.position && (
                         <p className="text-gray-400 text-sm">{memberData.position}</p>
                       )}
                     </div>
 
-                    {/* Member stats would go here */}
-                    <div className="text-right text-sm">
-                      <div className="text-secondary font-semibold">0</div>
-                      <div className="text-gray-400">Gols</div>
-                    </div>
+                    {/* Member actions */}
+                    {isAdmin && (
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveMember(memberId, memberData.name);
+                          }}
+                          className="bg-red-600 text-white px-2 py-1 rounded text-xs hover:bg-red-700 transition-colors"
+                        >
+                          Remover
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'announcements' && isAdmin && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-white text-lg font-semibold">Avisos</h3>
+              <button 
+                onClick={() => {
+                  setEditingAnnouncement(null);
+                  setAnnouncementTitle('');
+                  setAnnouncementMessage('');
+                  setShowAnnouncementModal(true);
+                }}
+                className="bg-secondary text-primary px-4 py-2 rounded-lg text-sm font-medium hover:bg-secondary-darker transition-colors"
+              >
+                Novo Aviso
+              </button>
+            </div>
+            
+            <div className="space-y-3">
+              {announcements.length === 0 ? (
+                <div className="bg-primary-lighter rounded-lg p-6 text-center">
+                  <p className="text-gray-400">Nenhum aviso ainda.</p>
+                </div>
+              ) : (
+                announcements.map((announcement) => (
+                  <div key={announcement.id} className="bg-primary-lighter rounded-lg p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <h4 className="text-white font-semibold text-base">{announcement.title}</h4>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => handleEditAnnouncement(announcement)}
+                          className="text-blue-400 hover:text-blue-300 text-sm"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => handleDeleteAnnouncement(announcement.id)}
+                          className="text-red-400 hover:text-red-300 text-sm"
+                        >
+                          Excluir
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-gray-300 text-sm mb-3">{announcement.message}</p>
+                    <div className="text-xs text-gray-500">
+                      Por {announcement.authorName} • {new Date(announcement.createdAt).toLocaleDateString('pt-BR')}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         )}
@@ -1751,7 +2432,7 @@ export default function FutDetail() {
                             const player = members[playerId];
                             return (
                               <div key={playerId} className="text-white text-sm">
-                                {index + 1}- {player?.name || 'Convidado'}
+                                {index + 1}- {player?.name || 'VAGA'}
                               </div>
                             );
                           })}
@@ -2148,35 +2829,183 @@ export default function FutDetail() {
           <div className="space-y-6">
             <h3 className="text-white text-lg font-semibold">Rankings</h3>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-primary-lighter rounded-lg p-4">
-                <h4 className="text-white font-semibold mb-3">Artilharia Geral</h4>
-                <div className="space-y-2">
-                  <div className="text-gray-400 text-sm">Em desenvolvimento...</div>
-                </div>
-              </div>
-              
-              <div className="bg-primary-lighter rounded-lg p-4">
-                <h4 className="text-white font-semibold mb-3">Assistências Gerais</h4>
-                <div className="space-y-2">
-                  <div className="text-gray-400 text-sm">Em desenvolvimento...</div>
-                </div>
-              </div>
-              
-              <div className="bg-primary-lighter rounded-lg p-4">
-                <h4 className="text-white font-semibold mb-3">Ranking por Dia</h4>
-                <div className="space-y-2">
-                  <div className="text-gray-400 text-sm">Em desenvolvimento...</div>
-                </div>
-              </div>
-              
-              <div className="bg-primary-lighter rounded-lg p-4">
-                <h4 className="text-white font-semibold mb-3">Ranking Geral</h4>
-                <div className="space-y-2">
-                  <div className="text-gray-400 text-sm">Em desenvolvimento...</div>
-                </div>
-              </div>
+            {/* View Selector */}
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setRankingView('geral')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  rankingView === 'geral'
+                    ? 'bg-secondary text-primary'
+                    : 'bg-gray-600 text-white hover:bg-gray-700'
+                }`}
+              >
+                Geral
+              </button>
+              <button
+                onClick={() => setRankingView('rodada')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  rankingView === 'rodada'
+                    ? 'bg-secondary text-primary'
+                    : 'bg-gray-600 text-white hover:bg-gray-700'
+                }`}
+              >
+                Rodada
+              </button>
+              <button
+                onClick={() => setRankingView('fut')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  rankingView === 'fut'
+                    ? 'bg-secondary text-primary'
+                    : 'bg-gray-600 text-white hover:bg-gray-700'
+                }`}
+              >
+                Por Fut
+              </button>
             </div>
+
+            {/* Ranking Type Selector */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => {
+                  if (rankingView === 'geral') generateGeneralRanking('pontuacao');
+                  else if (rankingView === 'rodada') generateRoundRanking('pontuacao');
+                }}
+                className={`px-3 py-2 rounded text-sm font-medium text-center ${
+                  rankingType === 'pontuacao'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gray-600 text-white hover:bg-gray-700'
+                }`}
+              >
+                Pontuação
+              </button>
+              <button
+                onClick={() => {
+                  if (rankingView === 'geral') generateGeneralRanking('artilharia');
+                  else if (rankingView === 'rodada') generateRoundRanking('artilharia');
+                }}
+                className={`px-3 py-2 rounded text-sm font-medium text-center ${
+                  rankingType === 'artilharia'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gray-600 text-white hover:bg-gray-700'
+                }`}
+              >
+                Artilharia
+              </button>
+              <button
+                onClick={() => {
+                  if (rankingView === 'geral') generateGeneralRanking('assistencias');
+                  else if (rankingView === 'rodada') generateRoundRanking('assistencias');
+                }}
+                className={`px-3 py-2 rounded text-sm font-medium text-center ${
+                  rankingType === 'assistencias'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gray-600 text-white hover:bg-gray-700'
+                }`}
+              >
+                Assistências
+              </button>
+              <button
+                onClick={() => {
+                  if (rankingView === 'geral') generateGeneralRanking('vitorias');
+                  else if (rankingView === 'rodada') generateRoundRanking('vitorias');
+                }}
+                className={`px-3 py-2 rounded text-sm font-medium text-center ${
+                  rankingType === 'vitorias'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gray-600 text-white hover:bg-gray-700'
+                }`}
+              >
+                Vitórias
+              </button>
+            </div>
+
+            {/* Fut History Selector (only for "Por Fut" view) */}
+            {rankingView === 'fut' && (
+              <div className="space-y-3">
+                <h4 className="text-white font-medium">Selecionar Fut:</h4>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {futHistory.map((futData) => (
+                    <button
+                      key={futData.id}
+                      onClick={() => {
+                        setSelectedDate(futData.id);
+                        generateFutRanking(rankingType, futData);
+                      }}
+                      className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                        selectedDate === futData.id
+                          ? 'bg-secondary text-primary border-secondary'
+                          : 'bg-primary-lighter text-white border-gray-600 hover:bg-primary'
+                      }`}
+                    >
+                      <div className="font-medium">{futData.name || 'Fut'}</div>
+                      <div className="text-sm opacity-75">
+                        {new Date(futData.date).toLocaleDateString('pt-BR')}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Ranking Display */}
+            {ranking && ranking.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-white font-semibold">
+                    {rankingView === 'geral' ? 'Ranking Geral' : 
+                     rankingView === 'rodada' ? 'Ranking da Rodada' : 
+                     'Ranking do Fut'}
+                  </h4>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={handleDownloadRanking}
+                      className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 transition-colors"
+                    >
+                      Baixar TXT
+                    </button>
+                    <button
+                      onClick={handleGenerateImage}
+                      className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 transition-colors"
+                    >
+                      Gerar Imagem
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  {ranking.slice(0, 10).map((item: any, index: number) => {
+                    const position = index + 1;
+                    const medal = position === 1 ? '🥇' : position === 2 ? '🥈' : position === 3 ? '🥉' : '';
+                    
+                    return (
+                      <div key={item.playerId} className="bg-primary-lighter rounded-lg p-3 flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className="text-2xl">{medal}</div>
+                          <div>
+                            <div className="text-white font-medium">{item.name}</div>
+                            <div className="text-gray-400 text-sm">#{position}</div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-green-400 font-bold text-lg">
+                            {rankingType === 'pontuacao' ? item.score :
+                             rankingType === 'artilharia' ? item.goals :
+                             rankingType === 'assistencias' ? item.assists :
+                             item.wins}
+                          </div>
+                          <div className="text-gray-400 text-sm">
+                            {rankingType === 'pontuacao' ? 'pts' :
+                             rankingType === 'artilharia' ? 'gols' :
+                             rankingType === 'assistencias' ? 'assist' :
+                             'vitórias'}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -2185,20 +3014,40 @@ export default function FutDetail() {
             <h3 className="text-white text-lg font-semibold">Configurações</h3>
             
             <div className="space-y-4">
-              <button className="w-full bg-secondary text-primary py-3 rounded-lg font-medium hover:bg-secondary-darker transition-colors">
+              <button 
+                onClick={() => {
+                  setEditName(fut?.name || '');
+                  setEditDescription(fut?.description || '');
+                  setEditTime(fut?.time || '');
+                  setEditLocation(fut?.location || '');
+                  setEditMaxVagas(fut?.maxVagas?.toString() || '');
+                  setEditPlayersPerTeam(fut?.playersPerTeam?.toString() || '');
+                  setShowEditInfoModal(true);
+                }}
+                className="w-full bg-secondary text-primary py-3 rounded-lg font-medium hover:bg-secondary-darker transition-colors"
+              >
                 Editar Informações do Fut
               </button>
               
-              <button className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors">
+              <button 
+                onClick={() => setActiveTab('members')}
+                className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+              >
                 Gerenciar Membros
               </button>
               
-              <button className="w-full bg-yellow-600 text-white py-3 rounded-lg font-medium hover:bg-yellow-700 transition-colors">
-                Configurar Notificações
+              <button 
+                onClick={() => setShowDeleteDataModal(true)}
+                className="w-full bg-orange-600 text-white py-3 rounded-lg font-medium hover:bg-orange-700 transition-colors"
+              >
+                Excluir Dados do Fut
               </button>
               
               <div className="pt-4 border-t border-gray-700">
-                <button className="w-full bg-red-600 text-white py-3 rounded-lg font-medium hover:bg-red-700 transition-colors">
+                <button 
+                  onClick={() => setShowDeleteFutModal(true)}
+                  className="w-full bg-red-600 text-white py-3 rounded-lg font-medium hover:bg-red-700 transition-colors"
+                >
                   Excluir Fut
                 </button>
               </div>
@@ -2579,7 +3428,7 @@ export default function FutDetail() {
                         
                         return (
                           <div key={playerId} className="flex items-center justify-between bg-primary p-2 rounded">
-                            <span className="text-white text-sm">{player?.name || 'Convidado'}</span>
+                            <span className="text-white text-sm">{player?.name || 'VAGA'}</span>
                             {canAdd && (
                               <button
                                 onClick={() => handleAddPlayerToTeam(playerId, selectedTeam)}
@@ -2594,6 +3443,460 @@ export default function FutDetail() {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Save Button */}
+            <div className="p-4 border-t border-gray-600">
+              <button
+                onClick={() => {
+                  handleSaveTeams();
+                  setSelectedTeam(null);
+                }}
+                className="w-full px-4 py-2 bg-secondary text-primary rounded text-sm font-medium hover:bg-secondary-darker transition-colors"
+              >
+                Salvar Times
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Info Modal */}
+      {showEditInfoModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+          <div className="bg-primary-lighter rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b border-gray-600">
+              <h2 className="text-white text-xl font-semibold">Editar Informações do Fut</h2>
+              <button
+                onClick={() => {
+                  setShowEditInfoModal(false);
+                  setEditName('');
+                  setEditDescription('');
+                  setEditTime('');
+                  setEditLocation('');
+                  setEditMaxVagas('');
+                  setEditPlayersPerTeam('');
+                }}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-white text-sm font-medium mb-2">
+                    Nome do Fut
+                  </label>
+                  <input
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="w-full px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
+                    placeholder="Digite o nome do fut..."
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-white text-sm font-medium mb-2">
+                    Horário
+                  </label>
+                  <input
+                    type="text"
+                    value={editTime}
+                    onChange={(e) => setEditTime(e.target.value)}
+                    className="w-full px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
+                    placeholder="Ex: 19:00"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-white text-sm font-medium mb-2">
+                  Local
+                </label>
+                <input
+                  type="text"
+                  value={editLocation}
+                  onChange={(e) => setEditLocation(e.target.value)}
+                  className="w-full px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
+                  placeholder="Digite o local do fut..."
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-white text-sm font-medium mb-2">
+                    Máximo de Vagas
+                  </label>
+                  <input
+                    type="number"
+                    value={editMaxVagas}
+                    onChange={(e) => setEditMaxVagas(e.target.value)}
+                    className="w-full px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
+                    placeholder="Ex: 20"
+                    min="1"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-white text-sm font-medium mb-2">
+                    Jogadores por Time
+                  </label>
+                  <input
+                    type="number"
+                    value={editPlayersPerTeam}
+                    onChange={(e) => setEditPlayersPerTeam(e.target.value)}
+                    className="w-full px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
+                    placeholder="Ex: 5"
+                    min="1"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-white text-sm font-medium mb-2">
+                  Descrição do Fut
+                </label>
+                <textarea
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  className="w-full px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary resize-none"
+                  placeholder="Digite a descrição do fut..."
+                  rows={4}
+                />
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-gray-600 flex space-x-3">
+              <button
+                onClick={() => {
+                  setShowEditInfoModal(false);
+                  setEditName('');
+                  setEditDescription('');
+                  setEditTime('');
+                  setEditLocation('');
+                  setEditMaxVagas('');
+                  setEditPlayersPerTeam('');
+                }}
+                className="flex-1 px-4 py-2 bg-gray-600 text-white rounded text-sm font-medium hover:bg-gray-700 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveInfo}
+                className="flex-1 px-4 py-2 bg-secondary text-primary rounded text-sm font-medium hover:bg-secondary-darker transition-colors"
+              >
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Announcement Modal */}
+      {showAnnouncementModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+          <div className="bg-primary-lighter rounded-lg w-full max-w-md">
+            <div className="flex items-center justify-between p-4 border-b border-gray-600">
+              <h2 className="text-white text-xl font-semibold">
+                {editingAnnouncement ? 'Editar Aviso' : 'Novo Aviso'}
+              </h2>
+              <button
+                onClick={() => {
+                  setShowAnnouncementModal(false);
+                  setAnnouncementTitle('');
+                  setAnnouncementMessage('');
+                  setEditingAnnouncement(null);
+                }}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-white text-sm font-medium mb-2">
+                  Título
+                </label>
+                <input
+                  type="text"
+                  value={announcementTitle}
+                  onChange={(e) => setAnnouncementTitle(e.target.value)}
+                  className="w-full px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
+                  placeholder="Digite o título do aviso..."
+                />
+              </div>
+              <div>
+                <label className="block text-white text-sm font-medium mb-2">
+                  Mensagem
+                </label>
+                <textarea
+                  value={announcementMessage}
+                  onChange={(e) => setAnnouncementMessage(e.target.value)}
+                  className="w-full px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary resize-none"
+                  placeholder="Digite a mensagem do aviso..."
+                  rows={4}
+                />
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-gray-600 flex space-x-3">
+              <button
+                onClick={() => {
+                  setShowAnnouncementModal(false);
+                  setAnnouncementTitle('');
+                  setAnnouncementMessage('');
+                  setEditingAnnouncement(null);
+                }}
+                className="flex-1 px-4 py-2 bg-gray-600 text-white rounded text-sm font-medium hover:bg-gray-700 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveAnnouncement}
+                className="flex-1 px-4 py-2 bg-secondary text-primary rounded text-sm font-medium hover:bg-secondary-darker transition-colors"
+              >
+                {editingAnnouncement ? 'Atualizar' : 'Criar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Make Admin Modal */}
+      {showMakeAdminModal && selectedMemberForAdmin && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+          <div className="bg-primary-lighter rounded-lg w-full max-w-md">
+            <div className="flex items-center justify-between p-4 border-b border-gray-600">
+              <h2 className="text-white text-xl font-semibold">
+                {fut?.admins?.[selectedMemberForAdmin.uid] ? 'Gerenciar Administrador' : 'Tornar Administrador'}
+              </h2>
+              <button
+                onClick={() => {
+                  setShowMakeAdminModal(false);
+                  setSelectedMemberForAdmin(null);
+                }}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-4">
+              {selectedMemberForAdmin.uid === fut?.adminId ? (
+                <div>
+                  <p className="text-white mb-4">
+                    <strong>{selectedMemberForAdmin.name}</strong> é o administrador original deste fut.
+                  </p>
+                  <p className="text-yellow-400 text-sm mb-4">
+                    O administrador original não pode ter seus privilégios removidos.
+                  </p>
+                </div>
+              ) : fut?.admins?.[selectedMemberForAdmin.uid] ? (
+                <div>
+                  <p className="text-white mb-4">
+                    <strong>{selectedMemberForAdmin.name}</strong> é um administrador deste fut.
+                  </p>
+                  <p className="text-gray-400 text-sm mb-4">
+                    Você pode remover os privilégios administrativos deste usuário.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-white mb-4">
+                    Tem certeza que deseja tornar <strong>{selectedMemberForAdmin.name}</strong> administrador deste fut?
+                  </p>
+                  <p className="text-gray-400 text-sm mb-4">
+                    O usuário terá acesso a todas as funcionalidades administrativas.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-gray-600 flex space-x-3">
+              <button
+                onClick={() => {
+                  setShowMakeAdminModal(false);
+                  setSelectedMemberForAdmin(null);
+                }}
+                className="flex-1 px-4 py-2 bg-gray-600 text-white rounded text-sm font-medium hover:bg-gray-700 transition-colors"
+              >
+                Cancelar
+              </button>
+              {selectedMemberForAdmin.uid !== fut?.adminId && (
+                <>
+                  {fut?.admins?.[selectedMemberForAdmin.uid] ? (
+                    <button
+                      onClick={handleRemoveAdmin}
+                      className="flex-1 px-4 py-2 bg-red-600 text-white rounded text-sm font-medium hover:bg-red-700 transition-colors"
+                    >
+                      Remover Administrador
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleMakeAdmin}
+                      className="flex-1 px-4 py-2 bg-yellow-600 text-white rounded text-sm font-medium hover:bg-yellow-700 transition-colors"
+                    >
+                      Tornar Administrador
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Data Modal */}
+      {showDeleteDataModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+          <div className="bg-primary-lighter rounded-lg w-full max-w-md">
+            <div className="flex items-center justify-between p-4 border-b border-gray-600">
+              <h2 className="text-white text-xl font-semibold">Excluir Dados do Fut</h2>
+              <button
+                onClick={() => {
+                  setShowDeleteDataModal(false);
+                  setDeleteConfirmation('');
+                  setDeletePassword('');
+                }}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-4">
+              <p className="text-white mb-4">
+                <strong>ATENÇÃO:</strong> Esta ação irá excluir todos os dados do fut (times, estatísticas, rankings, etc.) mas manterá as informações básicas do fut.
+              </p>
+              <p className="text-red-400 text-sm mb-4">
+                Esta ação não pode ser desfeita!
+              </p>
+              
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-white text-sm font-medium mb-2">
+                    Digite "EXCLUIR DADOS" para confirmar:
+                  </label>
+                  <input
+                    type="text"
+                    value={deleteConfirmation}
+                    onChange={(e) => setDeleteConfirmation(e.target.value)}
+                    className="w-full px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
+                    placeholder="EXCLUIR DADOS"
+                  />
+                </div>
+                <div>
+                  <label className="block text-white text-sm font-medium mb-2">
+                    Digite sua senha:
+                  </label>
+                  <input
+                    type="password"
+                    value={deletePassword}
+                    onChange={(e) => setDeletePassword(e.target.value)}
+                    className="w-full px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
+                    placeholder="Sua senha"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-gray-600 flex space-x-3">
+              <button
+                onClick={() => {
+                  setShowDeleteDataModal(false);
+                  setDeleteConfirmation('');
+                  setDeletePassword('');
+                }}
+                className="flex-1 px-4 py-2 bg-gray-600 text-white rounded text-sm font-medium hover:bg-gray-700 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeleteData}
+                className="flex-1 px-4 py-2 bg-orange-600 text-white rounded text-sm font-medium hover:bg-orange-700 transition-colors"
+              >
+                Excluir Dados
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Fut Modal */}
+      {showDeleteFutModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+          <div className="bg-primary-lighter rounded-lg w-full max-w-md">
+            <div className="flex items-center justify-between p-4 border-b border-gray-600">
+              <h2 className="text-white text-xl font-semibold">Excluir Fut</h2>
+              <button
+                onClick={() => {
+                  setShowDeleteFutModal(false);
+                  setDeleteConfirmation('');
+                  setDeletePassword('');
+                }}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-4">
+              <p className="text-white mb-4">
+                <strong>ATENÇÃO:</strong> Esta ação irá excluir completamente o fut e todos os seus dados.
+              </p>
+              <p className="text-red-400 text-sm mb-4">
+                Esta ação não pode ser desfeita!
+              </p>
+              
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-white text-sm font-medium mb-2">
+                    Digite "EXCLUIR FUT" para confirmar:
+                  </label>
+                  <input
+                    type="text"
+                    value={deleteConfirmation}
+                    onChange={(e) => setDeleteConfirmation(e.target.value)}
+                    className="w-full px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
+                    placeholder="EXCLUIR FUT"
+                  />
+                </div>
+                <div>
+                  <label className="block text-white text-sm font-medium mb-2">
+                    Digite sua senha:
+                  </label>
+                  <input
+                    type="password"
+                    value={deletePassword}
+                    onChange={(e) => setDeletePassword(e.target.value)}
+                    className="w-full px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
+                    placeholder="Sua senha"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-gray-600 flex space-x-3">
+              <button
+                onClick={() => {
+                  setShowDeleteFutModal(false);
+                  setDeleteConfirmation('');
+                  setDeletePassword('');
+                }}
+                className="flex-1 px-4 py-2 bg-gray-600 text-white rounded text-sm font-medium hover:bg-gray-700 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeleteFut}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded text-sm font-medium hover:bg-red-700 transition-colors"
+              >
+                Excluir Fut
+              </button>
             </div>
           </div>
         </div>
