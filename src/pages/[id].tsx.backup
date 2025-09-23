@@ -1,6 +1,3 @@
-// ============================================================================
-// IMPORTS E DEPENDÊNCIAS
-// ============================================================================
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { ref, onValue, get, set, push, remove } from 'firebase/database';
@@ -9,9 +6,6 @@ import { database } from '@/lib/firebase';
 import { ArrowLeft, Settings, Users, Calendar, MapPin, Crown, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import Image from 'next/image';
 
-// ============================================================================
-// INTERFACES E TIPOS
-// ============================================================================
 interface Fut {
   id: string;
   name: string;
@@ -43,94 +37,67 @@ interface UserData {
   guestType?: string;
 }
 
-// ============================================================================
-// COMPONENTE PRINCIPAL - FUTDETAIL
-// ============================================================================
 export default function FutDetail() {
   const router = useRouter();
   const { id } = router.query;
   const { user } = useAuth();
   
-  // ============================================================================
-  // ESTADOS PRINCIPAIS
-  // ============================================================================
   const [fut, setFut] = useState<Fut | null>(null);
   const [members, setMembers] = useState<Record<string, UserData>>({});
   const [activeTab, setActiveTab] = useState<'fut' | 'members' | 'occurrences' | 'settings' | 'times' | 'data' | 'ranking' | 'info' | 'announcements'>('fut');
-  // Estados de Modais
   const [showImageModal, setShowImageModal] = useState(false);
   const [showGuestModal, setShowGuestModal] = useState(false);
-  const [showGuestTypeModal, setShowGuestTypeModal] = useState(false);
-  const [showTeamDrawModal, setShowTeamDrawModal] = useState(false);
-  const [showTeamSelectModal, setShowTeamSelectModal] = useState(false);
-  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
-  const [showEditInfoModal, setShowEditInfoModal] = useState(false);
-  const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
-  const [showMakeAdminModal, setShowMakeAdminModal] = useState(false);
-  const [showDeleteDataModal, setShowDeleteDataModal] = useState(false);
-  const [showDeleteFutModal, setShowDeleteFutModal] = useState(false);
-
-  // Estados do Fut (Fluxo Principal)
   const [listReleased, setListReleased] = useState(false);
   const [releasedVagas, setReleasedVagas] = useState(0);
   const [confirmedMembers, setConfirmedMembers] = useState<string[]>([]);
   const [futStarted, setFutStarted] = useState(false);
-  const [futEnded, setFutEnded] = useState(false);
-
-  // Estados de Convidados
+  const [showGuestTypeModal, setShowGuestTypeModal] = useState(false);
   const [guestType, setGuestType] = useState<'avulso' | 'cadastrado' | null>(null);
   const [guestName, setGuestName] = useState('');
   const [guestEmail, setGuestEmail] = useState('');
   const [guestPhone, setGuestPhone] = useState('');
-
-  // Estados de Busca
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [memberSearchQuery, setMemberSearchQuery] = useState('');
-  const [memberSearchResults, setMemberSearchResults] = useState<any[]>([]);
-
-  // Estados de Times
+  const [showTeamDrawModal, setShowTeamDrawModal] = useState(false);
+  const [showTeamSelectModal, setShowTeamSelectModal] = useState(false);
   const [teamCount, setTeamCount] = useState('');
   const [playersPerTeam, setPlayersPerTeam] = useState('');
   const [teams, setTeams] = useState<Record<string, string[]>>({});
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
+  const [futEnded, setFutEnded] = useState(false);
   const [teamStats, setTeamStats] = useState<Record<string, { wins: number }>>({});
-
-  // Estados de Estatísticas dos Jogadores
   const [playerStats, setPlayerStats] = useState<Record<string, { goals: number; assists: number }>>({});
-
-  // Estados de Votação
   const [votingOpen, setVotingOpen] = useState(false);
   const [votingEnded, setVotingEnded] = useState(false);
   const [playerVotes, setPlayerVotes] = useState<Record<string, number>>({});
   const [userVotes, setUserVotes] = useState<Record<string, Record<string, number>>>({});
-
-  // Estados de Ranking
   const [showRanking, setShowRanking] = useState(false);
   const [ranking, setRanking] = useState<any>(null);
   const [rankingType, setRankingType] = useState<'pontuacao' | 'artilharia' | 'assistencias' | 'vitorias'>('pontuacao');
   const [loadingRanking, setLoadingRanking] = useState(false);
-  const [rankingView, setRankingView] = useState<'geral' | 'rodada' | 'fut'>('geral');
-  const [selectedDate, setSelectedDate] = useState('');
-
-  // Estados de Edição de Informações
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [memberSearchQuery, setMemberSearchQuery] = useState('');
+  const [memberSearchResults, setMemberSearchResults] = useState<any[]>([]);
+  const [showEditInfoModal, setShowEditInfoModal] = useState(false);
   const [editDescription, setEditDescription] = useState('');
   const [editName, setEditName] = useState('');
   const [editTime, setEditTime] = useState('');
   const [editLocation, setEditLocation] = useState('');
   const [editMaxVagas, setEditMaxVagas] = useState('');
   const [editPlayersPerTeam, setEditPlayersPerTeam] = useState('');
-
-  // Estados de Avisos
   const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
   const [announcementTitle, setAnnouncementTitle] = useState('');
   const [announcementMessage, setAnnouncementMessage] = useState('');
   const [editingAnnouncement, setEditingAnnouncement] = useState<any>(null);
-
-  // Estados de Administração
+  const [showMakeAdminModal, setShowMakeAdminModal] = useState(false);
   const [selectedMemberForAdmin, setSelectedMemberForAdmin] = useState<any>(null);
+  const [showDeleteDataModal, setShowDeleteDataModal] = useState(false);
+  const [showDeleteFutModal, setShowDeleteFutModal] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [deletePassword, setDeletePassword] = useState('');
+  const [rankingView, setRankingView] = useState<'geral' | 'rodada' | 'fut'>('geral');
+  const [selectedDate, setSelectedDate] = useState('');
   const [futHistory, setFutHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -186,16 +153,11 @@ export default function FutDetail() {
     );
   }
 
-  // ============================================================================
-  // VARIÁVEIS DERIVADAS
-  // ============================================================================
   const isAdmin = user && fut && (fut.adminId === user.uid || fut.admins?.[user.uid]);
   const isOriginalAdmin = user && fut && fut.adminId === user.uid;
   const memberCount = Object.keys(fut.members || {}).length;
 
-  // ============================================================================
-  // FUNÇÕES AUXILIARES
-  // ============================================================================
+
   const getRecurrenceText = () => {
     if (fut.type === 'avulso') return 'Partida única';
     
@@ -211,9 +173,6 @@ export default function FutDetail() {
     return 'Recorrência não definida';
   };
 
-  // ============================================================================
-  // FUNÇÕES DO FLUXO PRINCIPAL DO FUT
-  // ============================================================================
   const handleReleaseList = async () => {
     try {
       const futRef = ref(database, `futs/${id}`);
@@ -540,9 +499,6 @@ export default function FutDetail() {
     }
   };
 
-  // ============================================================================
-  // FUNÇÕES DE GERENCIAMENTO DE TIMES
-  // ============================================================================
   const handleTeamDraw = async () => {
     const teamCountNum = parseInt(teamCount);
     const playersPerTeamNum = parseInt(playersPerTeam);
@@ -764,9 +720,6 @@ export default function FutDetail() {
     }
   };
 
-  // ============================================================================
-  // FUNÇÕES DE GERENCIAMENTO DE DADOS (GOLS, ASSISTÊNCIAS, VITÓRIAS)
-  // ============================================================================
   const handleUpdatePlayerStats = async (playerId: string, stat: 'goals' | 'assists', delta: number) => {
     const newStats = {
       ...playerStats,
@@ -1775,14 +1728,8 @@ export default function FutDetail() {
     );
   }
 
-  // ============================================================================
-  // RENDERIZAÇÃO PRINCIPAL
-  // ============================================================================
   return (
     <div className="min-h-screen bg-primary">
-      {/* ============================================================================
-          HEADER COM BOTÃO VOLTAR E CONFIGURAÇÕES
-          ============================================================================ */}
       {/* Header with back button */}
       <div className="bg-primary-lighter border-b border-gray-700">
         <div className="px-6 py-4">
@@ -2065,14 +2012,8 @@ export default function FutDetail() {
         </div>
       </div>
 
-      {/* ============================================================================
-          CONTEÚDO DAS ABAS
-          ============================================================================ */}
       {/* Tab Content */}
       <div className="px-6 py-6">
-        {/* ============================================================================
-            ABA FUT - GERENCIAMENTO DO FLUXO PRINCIPAL
-            ============================================================================ */}
         {activeTab === 'fut' && isAdmin && (
           <div className="space-y-4">
             {!futStarted ? (
@@ -2435,9 +2376,6 @@ export default function FutDetail() {
           </div>
         )}
 
-        {/* ============================================================================
-            ABA TIMES - GERENCIAMENTO DE TIMES E SORTEIO
-            ============================================================================ */}
         {activeTab === 'times' && isAdmin && futStarted && (
           <div className="space-y-4">
             {Object.keys(teams).length === 0 ? (
@@ -2505,9 +2443,6 @@ export default function FutDetail() {
           </div>
         )}
 
-        {/* ============================================================================
-            ABA DADOS - GERENCIAMENTO DE GOLS, ASSISTÊNCIAS E VITÓRIAS
-            ============================================================================ */}
         {activeTab === 'data' && isAdmin && futStarted && (
           <div className="space-y-4">
             {Object.keys(teams).length === 0 ? (
