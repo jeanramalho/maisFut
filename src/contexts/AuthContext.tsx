@@ -22,6 +22,9 @@ interface UserData {
   positionCampo?: string;
   futs?: Record<string, boolean>;
   fcmToken?: string;
+  totalGoals?: number;
+  totalAssists?: number;
+  totalGames?: number;
   stats?: {
     totalGoals: number;
     totalAssists: number;

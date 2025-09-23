@@ -121,8 +121,8 @@ export default function Home() {
 
   // Use stats from Firebase user data
   const userStats = {
-    totalGoals: userData?.stats?.totalGoals || 0,
-    totalAssists: userData?.stats?.totalAssists || 0
+    totalGoals: userData?.totalGoals || 0,
+    totalAssists: userData?.totalAssists || 0
   };
 
   if (loading) {
