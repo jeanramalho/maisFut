@@ -1,3 +1,0 @@
-import { FutDetail } from '../components/fut/FutDetail';
-
-export default FutDetail;
