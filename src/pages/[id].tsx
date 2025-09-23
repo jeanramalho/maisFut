@@ -810,9 +810,11 @@ export default function FutDetail() {
       setVotingOpen(true);
       // Initialize player votes
       const initialVotes: Record<string, number> = {};
-      Object.values(teams).flat().forEach(playerId => {
-        initialVotes[playerId] = 0;
-      });
+      Object.values(teams).flat()
+        .filter(playerId => playerId !== 'VAGA' && !members[playerId]?.isGuest)
+        .forEach(playerId => {
+          initialVotes[playerId] = 0;
+        });
       setPlayerVotes(initialVotes);
     } catch (error) {
       console.error('Error starting voting:', error);
@@ -1239,43 +1241,43 @@ export default function FutDetail() {
             <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-black/80 to-transparent" />
             
             {/* Fut Info over blur */}
-            <div className="absolute bottom-0 left-0 right-0 p-6">
-              <div className="flex items-center space-x-2 mb-1">
-                <h2 className="text-white text-2xl font-bold drop-shadow-lg shadow-black">{fut.name}</h2>
+            <div className="absolute bottom-0 left-0 right-0 p-4 pb-6">
+              <div className="flex items-center space-x-2 mb-2">
+                <h2 className="text-white text-xl font-bold drop-shadow-lg shadow-black truncate">{fut.name}</h2>
                 {isAdmin && (
-                  <Crown size={20} className="text-yellow-500 drop-shadow-lg shadow-black" />
+                  <Crown size={18} className="text-yellow-500 drop-shadow-lg shadow-black flex-shrink-0" />
                 )}
               </div>
               
               {fut.description && (
-                <p className="text-white mb-2 text-sm drop-shadow-lg shadow-black font-medium">{fut.description}</p>
+                <p className="text-white mb-3 text-sm drop-shadow-lg shadow-black font-medium line-clamp-2">{fut.description}</p>
               )}
 
-              <div className="space-y-1 text-sm">
+              <div className="space-y-1 text-xs">
                 <div className="flex items-center space-x-2">
-                  <Calendar size={16} className="text-white drop-shadow-lg shadow-black" />
-                  <span className="text-white drop-shadow-lg shadow-black font-medium">{getRecurrenceText()}</span>
+                  <Calendar size={14} className="text-white drop-shadow-lg shadow-black flex-shrink-0" />
+                  <span className="text-white drop-shadow-lg shadow-black font-medium truncate">{getRecurrenceText()}</span>
                 </div>
                 
                 {fut.location && (
                   <div className="flex items-center space-x-2">
-                    <MapPin size={16} className="text-white drop-shadow-lg shadow-black" />
-                    <span className="text-white drop-shadow-lg shadow-black font-medium">{fut.location}</span>
+                    <MapPin size={14} className="text-white drop-shadow-lg shadow-black flex-shrink-0" />
+                    <span className="text-white drop-shadow-lg shadow-black font-medium truncate">{fut.location}</span>
                   </div>
                 )}
                 
                 <div className="flex items-center space-x-2">
-                  <Users size={16} className="text-white drop-shadow-lg shadow-black" />
+                  <Users size={14} className="text-white drop-shadow-lg shadow-black flex-shrink-0" />
                   <span className="text-white drop-shadow-lg shadow-black font-medium">{memberCount} membros</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Calendar size={16} className="text-white drop-shadow-lg shadow-black" />
+                  <Calendar size={14} className="text-white drop-shadow-lg shadow-black flex-shrink-0" />
                   <span className="text-white drop-shadow-lg shadow-black font-medium">{fut.maxVagas} vagas sugeridas</span>
                 </div>
               </div>
 
-              <div className="flex items-center space-x-2 mt-3">
-                <span className={`px-3 py-1 rounded-full text-xs font-medium drop-shadow-lg shadow-black ${
+              <div className="flex items-center space-x-2 mt-3 flex-wrap gap-1">
+                <span className={`px-2 py-1 rounded-full text-xs font-medium drop-shadow-lg shadow-black ${
                   fut.type === 'mensal' 
                     ? 'bg-blue-600 text-white' 
                     : 'bg-purple-600 text-white'
@@ -1284,7 +1286,7 @@ export default function FutDetail() {
                 </span>
                 
                 {fut.privacy === 'invite' && (
-                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-600 text-white drop-shadow-lg shadow-black">
+                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-600 text-white drop-shadow-lg shadow-black">
                     Privado
                   </span>
                 )}
@@ -1292,50 +1294,50 @@ export default function FutDetail() {
             </div>
           </div>
         ) : (
-          <div className="w-full h-64 bg-primary-lighter flex items-center justify-center">
-            <div className="text-center">
-              <div className="w-24 h-24 bg-secondary rounded-lg flex items-center justify-center mx-auto mb-4">
-                <span className="text-primary font-bold text-4xl">
+          <div className="w-full h-64 bg-primary-lighter flex items-center justify-center px-4">
+            <div className="text-center max-w-full">
+              <div className="w-20 h-20 bg-secondary rounded-lg flex items-center justify-center mx-auto mb-3">
+                <span className="text-primary font-bold text-3xl">
                   {fut.name.charAt(0).toUpperCase()}
                 </span>
               </div>
               
-              <div className="flex items-center space-x-2 mb-1">
-                <h2 className="text-white text-2xl font-bold">{fut.name}</h2>
+              <div className="flex items-center justify-center space-x-2 mb-2">
+                <h2 className="text-white text-xl font-bold truncate">{fut.name}</h2>
                 {isAdmin && (
-                  <Crown size={20} className="text-yellow-500" />
+                  <Crown size={18} className="text-yellow-500 flex-shrink-0" />
                 )}
               </div>
               
               {fut.description && (
-                <p className="text-gray-400 mb-2">{fut.description}</p>
+                <p className="text-gray-400 mb-3 text-sm line-clamp-2">{fut.description}</p>
               )}
 
-              <div className="space-y-1 text-sm text-gray-400">
-                <div className="flex items-center space-x-2">
-                  <Calendar size={16} />
-                  <span>{getRecurrenceText()}</span>
+              <div className="space-y-1 text-xs text-gray-400">
+                <div className="flex items-center justify-center space-x-2">
+                  <Calendar size={14} className="flex-shrink-0" />
+                  <span className="truncate">{getRecurrenceText()}</span>
                 </div>
                 
                 {fut.location && (
-                  <div className="flex items-center space-x-2">
-                    <MapPin size={16} />
-                    <span>{fut.location}</span>
+                  <div className="flex items-center justify-center space-x-2">
+                    <MapPin size={14} className="flex-shrink-0" />
+                    <span className="truncate">{fut.location}</span>
                   </div>
                 )}
                 
-                <div className="flex items-center space-x-2">
-                  <Users size={16} />
+                <div className="flex items-center justify-center space-x-2">
+                  <Users size={14} className="flex-shrink-0" />
                   <span>{memberCount} membros</span>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Calendar size={16} />
+                <div className="flex items-center justify-center space-x-2">
+                  <Calendar size={14} className="flex-shrink-0" />
                   <span>{fut.maxVagas} vagas sugeridas</span>
                 </div>
               </div>
 
-              <div className="flex items-center space-x-2 mt-3">
-                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+              <div className="flex items-center justify-center space-x-2 mt-3 flex-wrap gap-1">
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                   fut.type === 'mensal' 
                     ? 'bg-blue-900 text-blue-300' 
                     : 'bg-purple-900 text-purple-300'
@@ -1344,7 +1346,7 @@ export default function FutDetail() {
                 </span>
                 
                 {fut.privacy === 'invite' && (
-                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-900 text-yellow-300">
+                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-900 text-yellow-300">
                     Privado
                   </span>
                 )}
@@ -1372,7 +1374,10 @@ export default function FutDetail() {
             </button>
             
             {/* Tabs Container - Scrollable */}
-            <div className="flex space-x-1 overflow-x-auto flex-1 min-w-0">
+            <div className="flex space-x-1 overflow-x-auto flex-1 min-w-0 tabs-scrollbar" style={{
+              scrollbarWidth: 'thin',
+              scrollbarColor: '#6b7280 transparent'
+            }}>
               {isAdmin && (
                 <button
                   onClick={() => setActiveTab('fut')}
@@ -1585,7 +1590,7 @@ export default function FutDetail() {
                                     </span>
                                   </div>
                                 )}
-                        <span className="text-white font-medium text-sm">{memberData?.name || 'Convidado'}</span>
+                        <span className="text-white font-medium text-sm">{memberData?.name || 'VAGA'}</span>
                       </div>
                     );
                   })}
@@ -1825,7 +1830,7 @@ export default function FutDetail() {
                     <h3 className="text-white text-lg font-semibold mb-4">Votação - Avalie os Jogadores</h3>
                     <div className="space-y-4">
                       {Object.values(teams).flat()
-                        .filter(playerId => !members[playerId]?.isGuest) // Only members, not guests
+                        .filter(playerId => playerId !== 'VAGA' && !members[playerId]?.isGuest) // Only members, not guests or VAGA
                         .map((playerId) => {
                         const player = members[playerId];
                         const currentVote = userVotes[user?.uid || '']?.[playerId] || 0;
@@ -1833,33 +1838,35 @@ export default function FutDetail() {
                         return (
                           <div key={playerId} className="bg-primary p-3 rounded-lg">
                             <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              {player?.photoURL ? (
-                                <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
-                                  <Image
-                                    src={player.photoURL}
-                                    alt={player.name}
-                                    width={32}
-                                    height={32}
-                                    className="w-full h-full object-cover"
-                                  />
+                              <div className="flex items-center space-x-3 flex-1 min-w-0">
+                                {player?.photoURL ? (
+                                  <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                                    <Image
+                                      src={player.photoURL}
+                                      alt={player.name}
+                                      width={32}
+                                      height={32}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center flex-shrink-0">
+                                    <span className="text-primary font-semibold text-xs">
+                                      {player?.name?.charAt(0).toUpperCase() || 'C'}
+                                    </span>
+                                  </div>
+                                )}
+                                <div className="min-w-0 flex-1">
+                                  <span className="text-white text-sm font-medium truncate block">{player?.name || 'VAGA'}</span>
                                 </div>
-                              ) : (
-                                <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center flex-shrink-0">
-                                  <span className="text-primary font-semibold text-xs">
-                                    {player?.name?.charAt(0).toUpperCase() || 'C'}
-                                  </span>
-                                </div>
-                              )}
-                                <span className="text-white text-sm font-medium">{player?.name || 'Convidado'}</span>
                               </div>
                               
-                              <div className="flex items-center space-x-1">
+                              <div className="flex items-center space-x-0.5 ml-2 flex-shrink-0">
                                 {[1, 2, 3, 4, 5].map((star) => (
                                   <button
                                     key={star}
                                     onClick={() => handleVote(playerId, star)}
-                                    className={`w-8 h-8 rounded text-lg ${
+                                    className={`w-6 h-6 rounded text-sm ${
                                       star <= currentVote
                                         ? 'text-yellow-400'
                                         : 'text-gray-400 hover:text-yellow-300'
@@ -1887,10 +1894,10 @@ export default function FutDetail() {
                          rankingType === 'assistencias' ? 'Ranking de Assistências' :
                          'Ranking de Vitórias'}
                       </h3>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-2 gap-1">
                         <button 
                           onClick={() => handleGenerateRanking('pontuacao')}
-                          className={`px-3 py-2 rounded text-sm font-medium ${
+                          className={`px-2 py-1.5 rounded text-xs font-medium text-center truncate ${
                             rankingType === 'pontuacao' ? 'bg-secondary text-primary' : 'bg-gray-600 text-white'
                           }`}
                         >
@@ -1898,7 +1905,7 @@ export default function FutDetail() {
                         </button>
                         <button 
                           onClick={() => handleGenerateRanking('artilharia')}
-                          className={`px-3 py-2 rounded text-sm font-medium ${
+                          className={`px-2 py-1.5 rounded text-xs font-medium text-center truncate ${
                             rankingType === 'artilharia' ? 'bg-secondary text-primary' : 'bg-gray-600 text-white'
                           }`}
                         >
@@ -1906,7 +1913,7 @@ export default function FutDetail() {
                         </button>
                         <button 
                           onClick={() => handleGenerateRanking('assistencias')}
-                          className={`px-3 py-2 rounded text-sm font-medium ${
+                          className={`px-2 py-1.5 rounded text-xs font-medium text-center truncate ${
                             rankingType === 'assistencias' ? 'bg-secondary text-primary' : 'bg-gray-600 text-white'
                           }`}
                         >
@@ -1914,7 +1921,7 @@ export default function FutDetail() {
                         </button>
                         <button 
                           onClick={() => handleGenerateRanking('vitorias')}
-                          className={`px-3 py-2 rounded text-sm font-medium ${
+                          className={`px-2 py-1.5 rounded text-xs font-medium text-center truncate ${
                             rankingType === 'vitorias' ? 'bg-secondary text-primary' : 'bg-gray-600 text-white'
                           }`}
                         >
@@ -2037,7 +2044,7 @@ export default function FutDetail() {
                         <h4 className="text-gray-300 text-sm font-medium uppercase tracking-wide">Jogadores</h4>
                         <div className="space-y-2">
                         {players
-                          .filter(playerId => !members[playerId]?.isGuest || members[playerId]?.guestType === 'cadastrado') // Only members and registered guests
+                          .filter(playerId => playerId !== 'VAGA' && !members[playerId]?.isGuest) // Only members, not guests or VAGA
                           .map((playerId) => {
                           const player = members[playerId];
                           const isGuest = player?.isGuest;
@@ -2064,9 +2071,9 @@ export default function FutDetail() {
                                     </div>
                                   )}
                                   <div>
-                                    <span className="text-white text-sm font-medium">{player?.name || 'Convidado'}</span>
+                                    <span className="text-white text-sm font-medium">{player?.name || 'VAGA'}</span>
                                     {isGuest && (
-                                      <span className="text-gray-400 text-xs ml-2">(Convidado)</span>
+                                      <span className="text-gray-400 text-xs ml-2">(VAGA)</span>
                                     )}
                                   </div>
                                 </div>

@@ -33,6 +33,7 @@ interface Fut {
   listReleased?: boolean;
   confirmedMembers?: string[];
   releasedVagas?: number;
+  playerStats?: Record<string, { goals: number; assists: number }>;
 }
 
 export default function Home() {
@@ -118,6 +119,12 @@ export default function Home() {
     }
   }, [user, loading, router]);
 
+  // Use stats from Firebase user data
+  const userStats = {
+    totalGoals: userData?.stats?.totalGoals || 0,
+    totalAssists: userData?.stats?.totalAssists || 0
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-primary flex items-center justify-center">
@@ -143,11 +150,11 @@ export default function Home() {
           <div className="flex items-center space-x-6 text-sm mb-4">
             <div className="flex items-center space-x-2">
               <Trophy size={16} className="text-secondary" />
-              <span className="text-white">{userData?.stats?.totalGoals || 0} gols</span>
+              <span className="text-white">{userStats.totalGoals} gols</span>
             </div>
             <div className="flex items-center space-x-2">
               <Target size={16} className="text-secondary" />
-              <span className="text-white">{userData?.stats?.totalAssists || 0} assists</span>
+              <span className="text-white">{userStats.totalAssists} assists</span>
             </div>
           </div>
 
@@ -156,12 +163,12 @@ export default function Home() {
             <div className="flex justify-around">
               <div className="text-center">
                 <Trophy size={24} className="text-secondary mx-auto mb-2" />
-                <div className="text-white text-2xl font-bold">{userData?.stats?.totalGoals || 0}</div>
+                <div className="text-white text-2xl font-bold">{userStats.totalGoals}</div>
                 <div className="text-gray-400 text-sm">Gols</div>
               </div>
               <div className="text-center">
                 <Target size={24} className="text-secondary mx-auto mb-2" />
-                <div className="text-white text-2xl font-bold">{userData?.stats?.totalAssists || 0}</div>
+                <div className="text-white text-2xl font-bold">{userStats.totalAssists}</div>
                 <div className="text-gray-400 text-sm">Assistências</div>
               </div>
               <div className="text-center">

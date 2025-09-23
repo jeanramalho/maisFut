@@ -66,3 +66,22 @@ a {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* Thin scrollbar for tabs */
+.tabs-scrollbar::-webkit-scrollbar {
+  width: 3px;
+  height: 3px;
+}
+
+.tabs-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tabs-scrollbar::-webkit-scrollbar-thumb {
+  background: #6b7280;
+  border-radius: 2px;
+}
+
+.tabs-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
