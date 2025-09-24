@@ -3,9 +3,9 @@ import { useRouter } from 'next/router';
 import { ArrowLeft, Settings, Users, Calendar, MapPin, Crown, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
-import { useFutState } from './useFutState';
-import { useFutActions } from './useFutActions';
-import { TabType } from './types';
+import { useFutState } from '@/hooks/fut-details/useFutState';
+import { useFutActions } from '@/hooks/fut-details/useFutActions';
+import { TabType } from '@/hooks/fut-details/types';
 
 export default function FutDetailPage() {
 const router = useRouter();
@@ -738,12 +738,6 @@ return (
                   </h4>
                   <div className="flex space-x-2">
                     <button
-                      onClick={futActions.handleDownloadRanking}
-                      className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 transition-colors"
-                    >
-                      Baixar TXT
-                    </button>
-                    <button
                       onClick={futActions.handleGenerateImage}
                       className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 transition-colors"
                     >
@@ -917,7 +911,12 @@ return (
                     <h3 className="text-white text-lg font-semibold mb-4">Votação - Avalie os Jogadores</h3>
                     <div className="space-y-4">
                       {Object.values(futState.teams).flat()
-                        .filter(playerId => playerId !== 'VAGA' && !futState.members[playerId]?.isGuest) // Only members, not guests or VAGA
+                        .filter(playerId => {
+                          if (playerId === 'VAGA') return false;
+                          const player = futState.members[playerId];
+                          // Only members, not any type of guest
+                          return !player?.isGuest;
+                        })
                         .map((playerId) => {
                         const player = futState.members[playerId];
                         const currentVote = futState.userVotes[user?.uid || '']?.[playerId] || 0;
@@ -1017,6 +1016,7 @@ return (
                       </div>
                     </div>
                     
+                    
                     <div className="space-y-3">
                       {futState.ranking.slice(0, 3).map((item: any, index: number) => (
                         <div key={item.playerId || item.teamName} className="bg-primary p-3 rounded-lg">
@@ -1081,20 +1081,21 @@ return (
                     
                     <div className="mt-4 flex justify-center space-x-3">
                       <button 
-                        onClick={futActions.handleDownloadRanking}
-                        className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700 transition-colors"
-                      >
-                        Baixar TXT
-                      </button>
-                      <button 
                         onClick={futActions.handleGenerateImage}
                         className="bg-green-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-green-700 transition-colors"
                       >
                         Gerar Imagem
                       </button>
+                      <button 
+                        onClick={() => futState.setShowBolaCardsModal(true)}
+                        className="bg-purple-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-purple-700 transition-colors"
+                      >
+                        Gerar Bola Cheia e Bola Murcha
+                      </button>
                     </div>
                   </div>
                 )}
+
                 
                 <div className="space-y-6">
                   {Object.entries(futState.teams).map(([teamName, players], teamIndex) => (
@@ -1131,7 +1132,12 @@ return (
                         <h4 className="text-gray-300 text-sm font-medium uppercase tracking-wide">Jogadores</h4>
                         <div className="space-y-2">
                         {players
-                          .filter(playerId => playerId !== 'VAGA' && !futState.members[playerId]?.isGuest) // Only members, not guests or VAGA
+                          .filter(playerId => {
+                            if (playerId === 'VAGA') return false;
+                            const player = futState.members[playerId];
+                            // Allow members and registered guests, but not avulso guests
+                            return !player?.isGuest || player?.guestType === 'cadastrado';
+                          })
                           .map((playerId) => {
                           const player = futState.members[playerId];
                           const isGuest = player?.isGuest;
@@ -1701,10 +1707,16 @@ return (
                       )}
                     </div>
                     <button
-                      onClick={() => futActions.handleAddSearchedUser(user)}
+                      onClick={() => {
+                        if (futState.guestType === 'cadastrado') {
+                          futActions.handleAddRegisteredGuest(user);
+                        } else {
+                          futActions.handleAddSearchedUser(user);
+                        }
+                      }}
                       className="bg-green-600 text-white px-3 py-1 rounded text-xs font-medium hover:bg-green-700 transition-colors"
                     >
-                      Adicionar
+                      {futState.guestType === 'cadastrado' ? 'Adicionar como Convidado' : 'Adicionar como Membro'}
                     </button>
                   </div>
                 ))}
@@ -1733,10 +1745,20 @@ return (
             Cancelar
           </button>
           <button
-            onClick={futActions.handleAddGuest}
+            onClick={() => {
+              if (futState.guestType === 'avulso') {
+                futActions.handleAddGuest();
+              } else if (futState.guestType === 'cadastrado') {
+                // Para convidados cadastrados, focar no campo de busca
+                const searchInput = document.querySelector('input[placeholder="Digite email ou telefone"]') as HTMLInputElement;
+                if (searchInput) {
+                  searchInput.focus();
+                }
+              }
+            }}
             className="flex-1 px-4 py-2 bg-secondary text-primary rounded text-sm font-medium hover:bg-secondary-darker transition-colors"
           >
-            Adicionar
+            {futState.guestType === 'avulso' ? 'Adicionar' : 'Focar Busca'}
           </button>
         </div>
       </div>
@@ -1913,6 +1935,133 @@ return (
           </div>
         </div>
       )}
+
+{/* Bola Cheia e Bola Murcha Modal */}
+{futState.showBolaCardsModal && futState.ranking && futState.ranking.length >= 1 && (
+  <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+    <div className="bg-primary-lighter rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+      <div className="flex items-center justify-between p-4 border-b border-gray-600">
+        <h2 className="text-white text-xl font-semibold">Bola Cheia e Bola Murcha</h2>
+        <button
+          onClick={() => futState.setShowBolaCardsModal(false)}
+          className="text-gray-400 hover:text-white transition-colors"
+        >
+          <X size={24} />
+        </button>
+      </div>
+      
+      <div className="p-4">
+        <div className="flex flex-row gap-4">
+          {/* Bola Cheia Card */}
+          <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-xl p-4 shadow-lg w-1/2">
+            {/* Imagem da bola cheia - menor e centralizada */}
+            <div className="flex justify-center mb-3">
+              <Image
+                src="/bola-cheia.png"
+                alt="Bola Cheia"
+                width={80}
+                height={80}
+                className="mx-auto"
+              />
+            </div>
+            
+            {/* Card com blur para avatar e nome - centralizado */}
+            <div className="flex justify-center mb-3">
+              <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-lg px-2 py-1.5 flex items-center space-x-2">
+                {futState.members[futState.ranking[0].playerId]?.photoURL ? (
+                  <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                    <Image
+                      src={futState.members[futState.ranking[0].playerId]?.photoURL || ''}
+                      alt={futState.ranking[0].name}
+                      width={32}
+                      height={32}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-8 h-8 bg-white bg-opacity-30 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span className="text-white font-bold text-xs">
+                      {futState.ranking[0].name?.charAt(0).toUpperCase() || 'C'}
+                    </span>
+                  </div>
+                )}
+                <div className="text-white font-medium text-xs truncate max-w-[100px]">{futState.ranking[0].name}</div>
+              </div>
+            </div>
+            
+            {/* Pontuação com # */}
+            <div className="text-white text-base font-bold text-center">
+              #{futState.ranking[0].score}
+            </div>
+          </div>
+
+          {/* Bola Murcha Card */}
+          <div className="bg-gradient-to-br from-red-600 to-red-700 rounded-xl p-4 shadow-lg w-1/2">
+            {/* Imagem da bola murcha - menor e centralizada */}
+            <div className="flex justify-center mb-3">
+              <Image
+                src="/bola-murcha.png"
+                alt="Bola Murcha"
+                width={80}
+                height={80}
+                className="mx-auto"
+              />
+            </div>
+            
+            {/* Card com blur para avatar e nome - centralizado */}
+            <div className="flex justify-center mb-3">
+              {futState.ranking.length > 1 ? (
+                <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-lg px-2 py-1.5 flex items-center space-x-2">
+                  {futState.members[futState.ranking[futState.ranking.length - 1].playerId]?.photoURL ? (
+                    <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                      <Image
+                        src={futState.members[futState.ranking[futState.ranking.length - 1].playerId]?.photoURL || ''}
+                        alt={futState.ranking[futState.ranking.length - 1].name}
+                        width={32}
+                        height={32}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-8 h-8 bg-white bg-opacity-30 rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-white font-bold text-xs">
+                        {futState.ranking[futState.ranking.length - 1].name?.charAt(0).toUpperCase() || 'C'}
+                      </span>
+                    </div>
+                  )}
+                  <div className="text-white font-medium text-xs truncate max-w-[100px]">{futState.ranking[futState.ranking.length - 1].name}</div>
+                </div>
+              ) : (
+                <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-lg px-2 py-1.5">
+                  <div className="text-white text-xs opacity-60 text-center">
+                    Aguardando mais jogadores
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* Pontuação com # */}
+            {futState.ranking.length > 1 && (
+              <div className="text-white text-base font-bold text-center">
+                #{futState.ranking[futState.ranking.length - 1].score}
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* Download Button */}
+        <div className="mt-6 text-center">
+          <button
+            onClick={() => futActions.handleDownloadBolaCards()}
+            className="bg-secondary text-primary px-8 py-3 rounded-lg text-lg font-medium hover:bg-secondary-darker transition-colors"
+          >
+            Baixar Imagem
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 </div>
 );
 }

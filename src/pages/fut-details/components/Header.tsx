@@ -1,7 +1,7 @@
 import React from 'react';
 import { useRouter } from 'next/router';
 import { ArrowLeft, Settings } from 'lucide-react';
-import { Fut } from '../types';
+import { Fut } from '@/hooks/fut-details/types';
 
 interface HeaderProps {
   fut: Fut | null;

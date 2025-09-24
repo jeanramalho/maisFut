@@ -474,36 +474,6 @@ export function useFutActions(
     }
   }, [fut, isAdmin, futState]);
 
-  // Função para baixar ranking
-  const handleDownloadRanking = useCallback(() => {
-    if (!futState.ranking || futState.ranking.length === 0) return;
-
-    const rankingText = futState.ranking
-      .map((item: any, index: number) => {
-        const position = index + 1;
-        const score = futState.rankingType === 'pontuacao' ? item.score :
-                     futState.rankingType === 'artilharia' ? item.goals :
-                     futState.rankingType === 'assistencias' ? item.assists :
-                     item.wins;
-        const unit = futState.rankingType === 'pontuacao' ? 'pts' :
-                    futState.rankingType === 'artilharia' ? 'gols' :
-                    futState.rankingType === 'assistencias' ? 'assist' :
-                    'vitórias';
-        
-        return `${position}. ${item.name || item.teamName} - ${score} ${unit}`;
-      })
-      .join('\n');
-
-    const blob = new Blob([rankingText], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `ranking-${fut?.name || 'fut'}-${futState.rankingType}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, [futState.ranking, futState.rankingType, fut]);
 
 
   // Função para deletar anúncio
@@ -807,94 +777,60 @@ export function useFutActions(
     futState.setShowGuestModal(false);
   }, [futState]);
 
-  // Função para adicionar convidado (exatamente como no backup)
+  // Função para adicionar convidado avulso (exatamente como no backup)
   const handleAddGuest = useCallback(async () => {
-    if (!futState.guestType) return;
+    if (!fut || !isAdmin || futState.guestType !== 'avulso') return;
 
     try {
-      console.log('Adding guest:', { guestType: futState.guestType, guestName: futState.guestName, guestEmail: futState.guestEmail, guestPhone: futState.guestPhone });
-      
-      if (futState.guestType === 'avulso') {
-        if (!futState.guestName.trim()) {
-          alert('Por favor, digite o nome do convidado');
-          return;
-        }
-        
-        // Add guest to confirmed list
-        const guestId = `guest_${Date.now()}`;
-        futState.setConfirmedMembers([...futState.confirmedMembers, guestId]);
-        
-        // Store guest data in members object
-        const guestData = {
-          name: futState.guestName,
-          isGuest: true,
-          guestType: 'avulso'
-        };
-        
-        futState.setMembers((prev: any) => ({
-          ...prev,
-          [guestId]: guestData
-        }));
-        
-        alert('Convidado avulso adicionado com sucesso!');
-      } else {
-        if (!futState.guestEmail.trim() && !futState.guestPhone.trim()) {
-          alert('Por favor, digite o email ou telefone do convidado');
-          return;
-        }
-        
-        // Search for existing user
-        const usersRef = ref(database, 'users');
-        const snapshot = await get(usersRef);
-        const users = snapshot.val() || {};
-        
-        console.log('Searching for user with email/phone:', { guestEmail: futState.guestEmail, guestPhone: futState.guestPhone });
-        console.log('All users:', users);
-        
-        const existingUser = Object.entries(users).find(([uid, userData]: [string, any]) => 
-          userData.email === futState.guestEmail || userData.phone === futState.guestPhone
-        );
-        
-        if (existingUser) {
-          const [uid, userData] = existingUser;
-          const userDataTyped = userData as any;
-          console.log('Found existing user:', { uid, userData: userDataTyped });
-          futState.setConfirmedMembers([...futState.confirmedMembers, uid]);
-          futState.setMembers((prev: any) => ({
-            ...prev,
-            [uid]: { 
-              name: userDataTyped.name || '',
-              email: userDataTyped.email || '',
-              phone: userDataTyped.phone || '',
-              photoURL: userDataTyped.photoURL || '',
-              position: userDataTyped.position || '',
-              isGuest: true, 
-              guestType: 'cadastrado' 
-            }
-          }));
-          alert('Convidado cadastrado adicionado com sucesso!');
-        } else {
-          alert('Usuário não encontrado com este email/telefone');
-          return;
-        }
+      if (!futState.guestName.trim()) {
+        alert('Por favor, digite o nome do convidado');
+        return;
       }
+      
+      // Add guest to confirmed list
+      const guestId = `guest_${Date.now()}`;
+      const guestData = {
+        name: futState.guestName,
+        isGuest: true,
+        guestType: 'avulso'
+      };
+      
+      // Save to Firebase first
+      await set(ref(database, `futs/${fut.id}/members/${guestId}`), guestData);
+      
+      const newConfirmedMembers = [...futState.confirmedMembers, guestId];
+      await set(ref(database, `futs/${fut.id}/confirmedMembers`), newConfirmedMembers);
+      
+      // Update state after Firebase save
+      const newMembers = {
+        ...futState.members,
+        [guestId]: guestData
+      };
+      
+      // Store guest data in members object
+      futState.setMembers(newMembers);
+      
+      // Add to confirmed members
+      futState.setConfirmedMembers(newConfirmedMembers);
+      
+      alert('Convidado avulso adicionado com sucesso!');
       
       // Reset form (exatamente como no backup)
       futState.setGuestName('');
-      futState.setGuestEmail('');
-      futState.setGuestPhone('');
       futState.setGuestType(null);
       futState.setShowGuestTypeModal(false);
     } catch (error: any) {
       console.error('Error adding guest:', error);
       alert(`Erro ao adicionar convidado: ${error?.message || 'Erro desconhecido'}`);
     }
-  }, [futState]);
+  }, [fut, isAdmin, futState]);
 
-  // Função para adicionar usuário pesquisado
+  // Função para adicionar usuário pesquisado como membro permanente
   const handleAddSearchedUser = useCallback(async (userData: any) => {
+    if (!fut || !isAdmin) return;
+
     try {
-      console.log('Adding searched user as guest:', userData);
+      console.log('Adding searched user as member:', userData);
       
       // Validate userData
       if (!userData.uid) {
@@ -904,28 +840,109 @@ export function useFutActions(
       if (!userData.name) {
         throw new Error('Nome do usuário não encontrado');
       }
+
+      // Verificar se já é membro
+      if (futState.members[userData.uid]) {
+        alert('Este usuário já é membro do fut');
+        return;
+      }
       
-      futState.setConfirmedMembers([...futState.confirmedMembers, userData.uid]);
-      futState.setMembers((prev: any) => ({
-        ...prev,
+      // Update state first
+      const newConfirmedMembers = [...futState.confirmedMembers, userData.uid];
+      const newMembers = {
+        ...futState.members,
         [userData.uid]: { 
           ...userData, 
-          isGuest: true, 
-          guestType: 'cadastrado' 
+          isGuest: false, 
+          guestType: null 
         }
-      }));
+      };
+      
+      // Add to confirmed members
+      futState.setConfirmedMembers(newConfirmedMembers);
+      
+      // Store user data in members object (as regular member, not guest)
+      futState.setMembers(newMembers);
+      
+      // Save to Firebase
+      await set(ref(database, `futs/${fut.id}/members/${userData.uid}`), {
+        ...userData, 
+        isGuest: false, 
+        guestType: null 
+      });
+      await set(ref(database, `futs/${fut.id}/confirmedMembers`), newConfirmedMembers);
       
       // Reset search
       futState.setSearchQuery('');
       futState.setSearchResults([]);
       futState.setShowGuestTypeModal(false);
       
-      alert('Convidado cadastrado adicionado com sucesso!');
+      alert('Usuário adicionado como membro do fut!');
     } catch (error: any) {
       console.error('Error adding searched user:', error);
+      alert(`Erro ao adicionar usuário: ${error?.message || 'Erro desconhecido'}`);
+    }
+  }, [fut, isAdmin, futState]);
+
+  // Função para adicionar convidado cadastrado (apenas para o fut daquele dia)
+  const handleAddRegisteredGuest = useCallback(async (userData: any) => {
+    if (!fut || !isAdmin) return;
+
+    try {
+      console.log('Adding registered guest for this fut only:', userData);
+      
+      // Validate userData
+      if (!userData.uid) {
+        throw new Error('UID do usuário não encontrado');
+      }
+      
+      if (!userData.name) {
+        throw new Error('Nome do usuário não encontrado');
+      }
+
+      // Verificar se já está na lista de confirmados
+      if (futState.confirmedMembers.includes(userData.uid)) {
+        alert('Este usuário já está na lista de confirmados');
+        return;
+      }
+      
+      // Add to confirmed members for this fut only
+      const newConfirmedMembers = [...futState.confirmedMembers, userData.uid];
+      
+      // Store user data in members object as guest (only for this fut)
+      const newMembers = {
+        ...futState.members,
+        [userData.uid]: { 
+          ...userData, 
+          isGuest: true, 
+          guestType: 'cadastrado' 
+        }
+      };
+      
+      // Update state
+      futState.setConfirmedMembers(newConfirmedMembers);
+      futState.setMembers(newMembers);
+      
+      // Save to Firebase (only for this fut, not as permanent member)
+      // Save guest in a separate section, not as a member
+      await set(ref(database, `futs/${fut.id}/guests/${userData.uid}`), {
+        ...userData, 
+        isGuest: true, 
+        guestType: 'cadastrado' 
+      });
+      await set(ref(database, `futs/${fut.id}/confirmedMembers`), newConfirmedMembers);
+      
+      // Reset search
+      futState.setSearchQuery('');
+      futState.setSearchResults([]);
+      futState.setShowGuestTypeModal(false);
+      
+      alert('Convidado cadastrado adicionado com sucesso! Ele participará apenas deste fut.');
+    } catch (error: any) {
+      console.error('Error adding registered guest:', error);
       alert(`Erro ao adicionar convidado: ${error?.message || 'Erro desconhecido'}`);
     }
-  }, [futState]);
+  }, [fut, isAdmin, futState]);
 
   // Função para pesquisar usuários
   const handleSearchUsers = useCallback(async () => {
@@ -944,12 +961,16 @@ export function useFutActions(
       console.log('Current members:', futState.members);
       
       const results = Object.entries(users)
-        .filter(([uid, userData]: [string, any]) => 
-          (userData.email?.toLowerCase().includes(futState.searchQuery.toLowerCase()) ||
-          userData.phone?.includes(futState.searchQuery) ||
-          userData.name?.toLowerCase().includes(futState.searchQuery.toLowerCase())) &&
-          !futState.members[uid] // Not already a member
-        )
+        .filter(([uid, userData]: [string, any]) => {
+          const isInSearch = userData.email?.toLowerCase().includes(futState.searchQuery.toLowerCase()) ||
+                            userData.phone?.includes(futState.searchQuery) ||
+                            userData.name?.toLowerCase().includes(futState.searchQuery.toLowerCase());
+          
+          const memberData = futState.members[uid];
+          const isNotMember = !memberData || memberData.isGuest; // Allow if not a member or if it's a guest
+          
+          return isInSearch && isNotMember;
+        })
         .map(([uid, userData]: [string, any]) => ({ 
           uid, 
           name: userData.name || '',
@@ -967,6 +988,269 @@ export function useFutActions(
       futState.setSearchResults([]);
     }
   }, [futState]);
+
+  // Função para baixar imagem dos cards de bola cheia e bola murcha
+  const handleDownloadBolaCards = useCallback(async () => {
+    if (!futState.ranking || futState.ranking.length === 0) return;
+    
+    const bolaCheia = futState.ranking[0];
+    const bolaMurcha = futState.ranking.length > 1 ? futState.ranking[futState.ranking.length - 1] : null;
+    
+    // Create canvas
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    // Set canvas size (mobile-first: 400x300, desktop: 600x300)
+    const isMobile = window.innerWidth < 768;
+    canvas.width = isMobile ? 400 : 600;
+    canvas.height = isMobile ? 300 : 300;
+    
+    // Background gradient
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, '#1a1a1a');
+    gradient.addColorStop(1, '#2d2d2d');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Load images
+    const loadImage = (src: string): Promise<HTMLImageElement> => {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+      });
+    };
+    
+    try {
+      const bolaCheiaImg = await loadImage('/bola-cheia.png');
+      const bolaMurchaImg = await loadImage('/bola-murcha.png');
+      
+      if (isMobile) {
+        // Mobile layout: horizontal cards lado a lado
+        const cardWidth = (canvas.width - 60) / 2;
+        const cardHeight = canvas.height - 40;
+        
+        // Bola Cheia Card
+        const bolaCheiaGradient = ctx.createLinearGradient(20, 20, 20, 20 + cardHeight);
+        bolaCheiaGradient.addColorStop(0, '#16a34a');
+        bolaCheiaGradient.addColorStop(1, '#15803d');
+        ctx.fillStyle = bolaCheiaGradient;
+        ctx.fillRect(20, 20, cardWidth, cardHeight);
+        
+        // Bola Cheia image - menor e centralizada
+        ctx.drawImage(bolaCheiaImg, 20 + cardWidth / 2 - 40, 30, 80, 80);
+        
+        // Card com blur para avatar e nome - centralizado
+        const blurCardX = 20 + cardWidth / 2 - 50;
+        const blurCardY = 120;
+        
+        // Fundo do card blur
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.fillRect(blurCardX, blurCardY, 100, 25);
+        
+        // Player avatar
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(blurCardX + 15, blurCardY + 12, 8, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        // Player initial
+        ctx.fillStyle = '#16a34a';
+        ctx.font = 'bold 10px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText((bolaCheia.name?.charAt(0) || 'C').toUpperCase(), blurCardX + 15, blurCardY + 16);
+        
+        // Player name
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 10px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText(bolaCheia.name || 'Jogador', blurCardX + 30, blurCardY + 16);
+        
+        // Player score com #
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`#${bolaCheia.score}`, 20 + cardWidth / 2, blurCardY + 50);
+        
+        // Bola Murcha Card
+        const bolaMurchaGradient = ctx.createLinearGradient(20 + cardWidth + 20, 20, 20 + cardWidth + 20, 20 + cardHeight);
+        bolaMurchaGradient.addColorStop(0, '#dc2626');
+        bolaMurchaGradient.addColorStop(1, '#b91c1c');
+        ctx.fillStyle = bolaMurchaGradient;
+        ctx.fillRect(20 + cardWidth + 20, 20, cardWidth, cardHeight);
+        
+        // Bola Murcha image - menor e centralizada
+        ctx.drawImage(bolaMurchaImg, 20 + cardWidth + 20 + cardWidth / 2 - 40, 30, 80, 80);
+        
+        if (bolaMurcha) {
+          // Card com blur para avatar e nome - centralizado
+          const blurCardX2 = 20 + cardWidth + 20 + cardWidth / 2 - 50;
+          const blurCardY2 = 120;
+          
+          // Fundo do card blur
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+          ctx.fillRect(blurCardX2, blurCardY2, 100, 25);
+          
+          // Player avatar
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(blurCardX2 + 15, blurCardY2 + 12, 8, 0, 2 * Math.PI);
+          ctx.fill();
+          
+          // Player initial
+          ctx.fillStyle = '#dc2626';
+          ctx.font = 'bold 10px Arial';
+          ctx.textAlign = 'center';
+          ctx.fillText((bolaMurcha.name?.charAt(0) || 'C').toUpperCase(), blurCardX2 + 15, blurCardY2 + 16);
+          
+          // Player name
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 10px Arial';
+          ctx.textAlign = 'left';
+          ctx.fillText(bolaMurcha.name || 'Jogador', blurCardX2 + 30, blurCardY2 + 16);
+          
+          // Player score com #
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 14px Arial';
+          ctx.textAlign = 'center';
+          ctx.fillText(`#${bolaMurcha.score}`, 20 + cardWidth + 20 + cardWidth / 2, blurCardY2 + 50);
+        } else {
+          // No second player message
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+          ctx.fillRect(20 + cardWidth + 20 + cardWidth / 2 - 50, 120, 100, 25);
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 10px Arial';
+          ctx.textAlign = 'center';
+          ctx.fillText('Aguardando mais jogadores', 20 + cardWidth + 20 + cardWidth / 2, 135);
+        }
+        
+      } else {
+        // Desktop layout: horizontal cards lado a lado
+        const cardWidth = (canvas.width - 60) / 2;
+        const cardHeight = canvas.height - 40;
+        
+        // Bola Cheia Card
+        const bolaCheiaGradient = ctx.createLinearGradient(20, 20, 20, 20 + cardHeight);
+        bolaCheiaGradient.addColorStop(0, '#16a34a');
+        bolaCheiaGradient.addColorStop(1, '#15803d');
+        ctx.fillStyle = bolaCheiaGradient;
+        ctx.fillRect(20, 20, cardWidth, cardHeight);
+        
+        // Bola Cheia image - menor e centralizada
+        ctx.drawImage(bolaCheiaImg, 20 + cardWidth / 2 - 40, 40, 80, 80);
+        
+        // Card com blur para avatar e nome - centralizado
+        const blurCardX = 20 + cardWidth / 2 - 50;
+        const blurCardY = 130;
+        
+        // Fundo do card blur
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.fillRect(blurCardX, blurCardY, 100, 25);
+        
+        // Player avatar
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(blurCardX + 15, blurCardY + 12, 8, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        // Player initial
+        ctx.fillStyle = '#16a34a';
+        ctx.font = 'bold 10px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText((bolaCheia.name?.charAt(0) || 'C').toUpperCase(), blurCardX + 15, blurCardY + 16);
+        
+        // Player name
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 10px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText(bolaCheia.name || 'Jogador', blurCardX + 30, blurCardY + 16);
+        
+        // Player score com #
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`#${bolaCheia.score}`, 20 + cardWidth / 2, blurCardY + 50);
+        
+        // Bola Murcha Card
+        const bolaMurchaGradient = ctx.createLinearGradient(20 + cardWidth + 20, 20, 20 + cardWidth + 20, 20 + cardHeight);
+        bolaMurchaGradient.addColorStop(0, '#dc2626');
+        bolaMurchaGradient.addColorStop(1, '#b91c1c');
+        ctx.fillStyle = bolaMurchaGradient;
+        ctx.fillRect(20 + cardWidth + 20, 20, cardWidth, cardHeight);
+        
+        // Bola Murcha image - menor e centralizada
+        ctx.drawImage(bolaMurchaImg, 20 + cardWidth + 20 + cardWidth / 2 - 40, 40, 80, 80);
+        
+        if (bolaMurcha) {
+          // Card com blur para avatar e nome - centralizado
+          const blurCardX2 = 20 + cardWidth + 20 + cardWidth / 2 - 50;
+          const blurCardY2 = 130;
+          
+          // Fundo do card blur
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+          ctx.fillRect(blurCardX2, blurCardY2, 100, 25);
+          
+          // Player avatar
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(blurCardX2 + 15, blurCardY2 + 12, 8, 0, 2 * Math.PI);
+          ctx.fill();
+          
+          // Player initial
+          ctx.fillStyle = '#dc2626';
+          ctx.font = 'bold 10px Arial';
+          ctx.textAlign = 'center';
+          ctx.fillText((bolaMurcha.name?.charAt(0) || 'C').toUpperCase(), blurCardX2 + 15, blurCardY2 + 16);
+          
+          // Player name
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 10px Arial';
+          ctx.textAlign = 'left';
+          ctx.fillText(bolaMurcha.name || 'Jogador', blurCardX2 + 30, blurCardY2 + 16);
+          
+          // Player score com #
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 16px Arial';
+          ctx.textAlign = 'center';
+          ctx.fillText(`#${bolaMurcha.score}`, 20 + cardWidth + 20 + cardWidth / 2, blurCardY2 + 50);
+        } else {
+          // No second player message
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+          ctx.fillRect(20 + cardWidth + 20 + cardWidth / 2 - 50, 130, 100, 25);
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 10px Arial';
+          ctx.textAlign = 'center';
+          ctx.fillText('Aguardando mais jogadores', 20 + cardWidth + 20 + cardWidth / 2, 145);
+        }
+      }
+      
+      // Footer
+      ctx.fillStyle = '#666666';
+      ctx.font = '12px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('Gerado pelo +Fut', canvas.width / 2, canvas.height - 10);
+      
+      // Download image
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `${fut?.name || 'Fut'}_Bola_Cheia_Murcha.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        }
+      }, 'image/png');
+      
+    } catch (error) {
+      console.error('Error loading images:', error);
+      alert('Erro ao carregar imagens para download');
+    }
+  }, [futState.ranking, fut]);
 
   // Função para gerar imagem do ranking (exatamente como no backup)
   const handleGenerateImage = useCallback(async () => {
@@ -1126,6 +1410,133 @@ export function useFutActions(
     }, 'image/png');
   }, [fut, futState]);
 
+  // Função para remover membro da lista de confirmados (não remove da lista de membros)
+  const handleRemoveFromConfirmed = useCallback(async (memberId: string) => {
+    if (!fut || !isAdmin) return;
+
+    // Get member name for confirmation
+    const memberData = futState.members[memberId];
+    const memberName = memberData?.name || 'este membro';
+
+    // Confirm removal
+    const confirmed = window.confirm(
+      `Tem certeza que deseja remover ${memberName} da lista de confirmados?\n\nIsso gerará uma vaga no fut.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      // Remove from confirmed members
+      const newConfirmedMembers = futState.confirmedMembers.filter((id: string) => id !== memberId);
+      
+      // Update local state first
+      futState.setConfirmedMembers(newConfirmedMembers);
+      
+      // Save to Firebase
+      await set(ref(database, `futs/${fut.id}/confirmedMembers`), newConfirmedMembers);
+      
+      alert(`${memberName} foi removido da lista de confirmados!`);
+    } catch (error) {
+      console.error('Error removing from confirmed:', error);
+      alert('Erro ao remover da lista de confirmados');
+    }
+  }, [fut, isAdmin, futState]);
+
+  // Função para tornar membro admin
+  const handleMakeAdmin = useCallback(async () => {
+    if (!futState.selectedMemberForAdmin || !fut) return;
+    
+    try {
+      const futRef = ref(database, `futs/${fut.id}`);
+      const updatedAdmins = {
+        ...fut.admins,
+        [futState.selectedMemberForAdmin.uid]: true
+      };
+      
+      await set(futRef, {
+        ...fut,
+        admins: updatedAdmins
+      });
+      
+      futState.setFut((prev: any) => prev ? { ...prev, admins: updatedAdmins } : null);
+      futState.setShowMakeAdminModal(false);
+      futState.setSelectedMemberForAdmin(null);
+      alert(`${futState.selectedMemberForAdmin.name} agora é administrador!`);
+    } catch (error) {
+      console.error('Error making admin:', error);
+      alert('Erro ao tornar administrador');
+    }
+  }, [fut, futState]);
+
+  // Função para remover privilégios de admin
+  const handleRemoveAdmin = useCallback(async () => {
+    if (!futState.selectedMemberForAdmin || !fut) return;
+    
+    // Check if trying to remove original admin
+    if (futState.selectedMemberForAdmin.uid === fut.adminId) {
+      alert('Não é possível remover os privilégios do administrador original!');
+      futState.setShowMakeAdminModal(false);
+      futState.setSelectedMemberForAdmin(null);
+      return;
+    }
+    
+    try {
+      const futRef = ref(database, `futs/${fut.id}`);
+      const updatedAdmins = { ...fut.admins };
+      delete updatedAdmins[futState.selectedMemberForAdmin.uid];
+      
+      await set(futRef, {
+        ...fut,
+        admins: updatedAdmins
+      });
+      
+      futState.setFut((prev: any) => prev ? { ...prev, admins: updatedAdmins } : null);
+      futState.setShowMakeAdminModal(false);
+      futState.setSelectedMemberForAdmin(null);
+      alert(`${futState.selectedMemberForAdmin.name} não é mais administrador!`);
+    } catch (error) {
+      console.error('Error removing admin:', error);
+      alert('Erro ao remover administrador');
+    }
+  }, [fut, futState]);
+
+  // Função para adicionar membro
+  const handleAddMember = useCallback(async (userToAdd: any) => {
+    if (!fut || !isAdmin) return;
+
+    try {
+      // Add to members
+      const newMembers = {
+        ...futState.members,
+        [userToAdd.uid]: {
+          name: userToAdd.name,
+          email: userToAdd.email,
+          phone: userToAdd.phone,
+          photoURL: userToAdd.photoURL,
+          position: userToAdd.position,
+          isGuest: false,
+          guestType: null
+        }
+      };
+
+      // Update Firebase
+      await set(ref(database, `futs/${fut.id}/members`), newMembers);
+      
+      // Update local state
+      futState.setMembers(newMembers);
+      
+      // Close modal and reset search
+      futState.setShowAddMemberModal(false);
+      futState.setMemberSearchQuery('');
+      futState.setMemberSearchResults([]);
+      
+      alert(`${userToAdd.name} foi adicionado como membro do fut!`);
+    } catch (error) {
+      console.error('Error adding member:', error);
+      alert('Erro ao adicionar membro');
+    }
+  }, [fut, isAdmin, futState]);
+
   return {
     getRecurrenceText,
     handleReleaseList,
@@ -1136,6 +1547,7 @@ export function useFutActions(
     handleSearchUsers,
     handleAddGuest,
     handleAddSearchedUser,
+    handleAddRegisteredGuest,
     handleSearchMembers,
     handleEndFut,
     handleStartVoting,
@@ -1149,8 +1561,8 @@ export function useFutActions(
     handleShareTeams,
     handleUpdateTeamWins,
     handleUpdatePlayerStats,
-    handleDownloadRanking,
     handleGenerateImage,
+    handleDownloadBolaCards,
     handleDeleteAnnouncement,
     handleRemoveMember,
     handleTeamDraw,
@@ -1158,5 +1570,11 @@ export function useFutActions(
     handleAddPlayerToTeam,
     handleRemovePlayerFromTeam,
     handleSaveTeams,
+    handleRemoveFromConfirmed,
+
+    // Funções de gerenciamento de membros e admins
+    handleMakeAdmin,
+    handleRemoveAdmin,
+    handleAddMember,
   };
 }

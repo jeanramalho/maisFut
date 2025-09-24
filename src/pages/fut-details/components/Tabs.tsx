@@ -1,5 +1,5 @@
 import React from 'react';
-import { TabType } from '../types';
+import { TabType } from '@/hooks/fut-details/types';
 
 interface TabsProps {
   activeTab: TabType;

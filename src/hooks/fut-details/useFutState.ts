@@ -28,6 +28,7 @@ export function useFutState() {
   const [showMakeAdminModal, setShowMakeAdminModal] = useState(false);
   const [showDeleteDataModal, setShowDeleteDataModal] = useState(false);
   const [showDeleteFutModal, setShowDeleteFutModal] = useState(false);
+  const [showBolaCardsModal, setShowBolaCardsModal] = useState(false);
 
   // Estados do Fut (Fluxo Principal)
   const [listReleased, setListReleased] = useState(false);
@@ -166,6 +167,8 @@ export function useFutState() {
 
         // Load members data
         const memberIds = Object.keys(futData.members || {});
+        const allMembers: Record<string, any> = {};
+        
         if (memberIds.length > 0) {
           const memberPromises = memberIds.map(async (memberId) => {
             try {
@@ -188,9 +191,20 @@ export function useFutState() {
           });
 
           const memberResults = await Promise.all(memberPromises);
-          const allMembers = memberResults.reduce((acc, member) => ({ ...acc, ...member }), {});
-          setMembers(allMembers);
+          memberResults.forEach(member => {
+            Object.assign(allMembers, member);
+          });
         }
+
+        // Load guests data (registered guests)
+        const guestIds = Object.keys(futData.guests || {});
+        if (guestIds.length > 0) {
+          guestIds.forEach(guestId => {
+            allMembers[guestId] = futData.guests[guestId];
+          });
+        }
+
+        setMembers(allMembers);
 
         setLoading(false);
       } catch (error) {
@@ -276,10 +290,20 @@ export function useFutState() {
     setShowAnnouncementModal,
     showMakeAdminModal,
     setShowMakeAdminModal,
+    selectedMemberForAdmin,
+    setSelectedMemberForAdmin,
+    deleteConfirmation,
+    setDeleteConfirmation,
+    deletePassword,
+    setDeletePassword,
+    futHistory,
+    setFutHistory,
     showDeleteDataModal,
     setShowDeleteDataModal,
     showDeleteFutModal,
     setShowDeleteFutModal,
+    showBolaCardsModal,
+    setShowBolaCardsModal,
 
     // Estados do Fut
     listReleased,
@@ -353,11 +377,7 @@ export function useFutState() {
     loadingRanking,
     setLoadingRanking,
 
-    // Estados de Convidado (modais)
-    showGuestModal,
-    setShowGuestModal,
-    showGuestTypeModal,
-    setShowGuestTypeModal,
+    // Estados de Convidado (modais) - já incluídos acima
 
     // Estados de Edição
     editDescription,
@@ -383,19 +403,7 @@ export function useFutState() {
     editingAnnouncement,
     setEditingAnnouncement,
 
-    // Estados de Administração
-    showAddMemberModal,
-    setShowAddMemberModal,
-    showMakeAdminModal,
-    setShowMakeAdminModal,
-    selectedMemberForAdmin,
-    setSelectedMemberForAdmin,
-    deleteConfirmation,
-    setDeleteConfirmation,
-    deletePassword,
-    setDeletePassword,
-    futHistory,
-    setFutHistory,
+    // Estados de Administração - já incluídos acima
 
     // Funções
     loadAnnouncements,

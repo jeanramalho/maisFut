@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { Calendar, MapPin, Users, Crown, UploadCloud } from 'lucide-react';
-import { Fut } from '../types';
+import { Fut } from '@/hooks/fut-details/types';
 
 interface ImageSectionProps {
   fut: Fut | null;
