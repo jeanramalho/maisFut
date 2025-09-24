@@ -408,26 +408,46 @@ return (
                   {futState.confirmedMembers.map((memberId, index) => {
                     const memberData = futState.members[memberId];
                     return (
-                      <div key={memberId} className="flex items-center space-x-2">
-                        <span className="text-secondary font-bold text-sm w-6">{index + 1} -</span>
-                        {memberData?.photoURL ? (
-                          <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
-                            <Image
-                              src={memberData.photoURL}
-                              alt={memberData.name}
-                              width={32}
-                              height={32}
-                              className="w-full h-full object-cover"
-                            />
+                      <div key={memberId} className="flex items-center justify-between bg-gray-800 rounded-lg p-2">
+                        <div className="flex items-center space-x-2 flex-1">
+                          <span className="text-secondary font-bold text-sm w-6">{index + 1} -</span>
+                          {memberData?.photoURL ? (
+                            <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                              <Image
+                                src={memberData.photoURL}
+                                alt={memberData.name}
+                                width={32}
+                                height={32}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          ) : (
+                            <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center flex-shrink-0">
+                              <span className="text-primary font-semibold text-xs">
+                                {memberData?.name?.charAt(0).toUpperCase() || 'C'}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex flex-col">
+                            <span className="text-white font-medium text-sm">{memberData?.name || 'VAGA'}</span>
+                            {memberData?.isGuest && (
+                              <span className="text-gray-400 text-xs">(Convidado)</span>
+                            )}
                           </div>
-                        ) : (
-                          <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center flex-shrink-0">
-                            <span className="text-primary font-semibold text-xs">
-                              {memberData?.name?.charAt(0).toUpperCase() || 'C'}
-                            </span>
-                          </div>
+                        </div>
+                        
+                        {/* Remove from confirmed button - only for admins */}
+                        {isAdmin && (
+                          <button
+                            onClick={() => futActions.handleRemoveFromConfirmed(memberId)}
+                            className="bg-red-500 hover:bg-red-600 text-white p-1.5 rounded-lg text-xs transition-all duration-200 flex items-center space-x-1 shadow-sm hover:shadow-md"
+                            title="Remover da lista de confirmados"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
                         )}
-                        <span className="text-white font-medium text-sm">{memberData?.name || 'VAGA'}</span>
                       </div>
                     );
                   })}
@@ -516,20 +536,12 @@ return (
             <div className="flex items-center justify-between">
               <h3 className="text-white text-lg font-semibold">Membros</h3>
               {isAdmin && (
-                <div className="flex space-x-2">
-                  <button 
-                    onClick={() => futState.setShowAddMemberModal(true)}
-                    className="bg-secondary text-primary px-4 py-2 rounded-lg text-sm font-medium hover:bg-secondary-darker transition-colors"
-                  >
-                    Adicionar Membro
-                  </button>
-                  <button 
-                    onClick={() => futState.setShowGuestModal(true)}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-                  >
-                    + Convidado
-                  </button>
-                </div>
+                <button 
+                  onClick={() => futState.setShowAddMemberModal(true)}
+                  className="bg-secondary text-primary px-4 py-2 rounded-lg text-sm font-medium hover:bg-secondary-darker transition-colors"
+                >
+                  Adicionar Membro
+                </button>
               )}
             </div>
 
@@ -1147,8 +1159,8 @@ return (
                                   )}
                                   <div>
                                     <span className="text-white text-sm font-medium">{player?.name || 'VAGA'}</span>
-                                    {isGuest && (
-                                      <span className="text-gray-400 text-xs ml-2">(VAGA)</span>
+                                    {player?.isGuest && (
+                                      <span className="text-gray-400 text-xs ml-2">(Convidado)</span>
                                     )}
                                   </div>
                                 </div>
@@ -1675,46 +1687,35 @@ return (
                 </button>
               </div>
             </div>
-
+            
+            {/* Search Results */}
             {futState.searchResults.length > 0 && (
-              <div className="space-y-2">
-                <h3 className="text-white text-sm font-medium">Resultados:</h3>
-                <div className="space-y-1 max-h-40 overflow-y-auto">
-                  {futState.searchResults.map((user) => (
-                    <div
-                      key={user.uid}
-                      onClick={() => futActions.handleAddSearchedUser(user)}
-                      className="bg-primary p-2 rounded cursor-pointer hover:bg-primary-darker transition-colors"
-                    >
+              <div className="max-h-40 overflow-y-auto space-y-2">
+                {futState.searchResults.map((user) => (
+                  <div key={user.uid} className="flex items-center justify-between bg-primary p-2 rounded">
+                    <div>
                       <div className="text-white text-sm font-medium">{user.name}</div>
-                      <div className="text-gray-400 text-xs">{user.email || user.phone}</div>
+                      <div className="text-gray-400 text-xs">{user.email}</div>
+                      {user.phone && (
+                        <div className="text-gray-400 text-xs">{user.phone}</div>
+                      )}
                     </div>
-                  ))}
-                </div>
+                    <button
+                      onClick={() => futActions.handleAddSearchedUser(user)}
+                      className="bg-green-600 text-white px-3 py-1 rounded text-xs font-medium hover:bg-green-700 transition-colors"
+                    >
+                      Adicionar
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
-
-            <div className="border-t border-gray-600 pt-3">
-              <label className="block text-white text-sm font-medium mb-2">
-                Ou adicionar manualmente:
-              </label>
-              <div className="space-y-2">
-                <input
-                  type="email"
-                  value={futState.guestEmail}
-                  onChange={(e) => futState.setGuestEmail(e.target.value)}
-                  className="w-full px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
-                  placeholder="Email do convidado"
-                />
-                <input
-                  type="tel"
-                  value={futState.guestPhone}
-                  onChange={(e) => futState.setGuestPhone(e.target.value)}
-                  className="w-full px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
-                  placeholder="Telefone do convidado"
-                />
+            
+            {futState.searchQuery && futState.searchResults.length === 0 && (
+              <div className="text-gray-400 text-sm text-center py-2">
+                Nenhum usuário encontrado
               </div>
-            </div>
+            )}
           </div>
         )}
 
@@ -1742,6 +1743,176 @@ return (
     </div>
   </div>
 )}
+
+      {/* Add Member Modal */}
+      {futState.showAddMemberModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+          <div className="bg-primary-lighter rounded-lg w-full max-w-md">
+            <div className="flex items-center justify-between p-4 border-b border-gray-600">
+              <h2 className="text-white text-xl font-semibold">Adicionar Membro</h2>
+              <button
+                onClick={() => {
+                  futState.setShowAddMemberModal(false);
+                  futState.setMemberSearchQuery('');
+                  futState.setMemberSearchResults([]);
+                }}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-white text-sm font-medium mb-2">
+                  Buscar Usuário
+                </label>
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={futState.memberSearchQuery}
+                    onChange={(e) => futState.setMemberSearchQuery(e.target.value)}
+                    className="flex-1 px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
+                    placeholder="Digite email ou telefone"
+                  />
+                  <button
+                    onClick={futActions.handleSearchMembers}
+                    className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700 transition-colors"
+                  >
+                    Buscar
+                  </button>
+                </div>
+              </div>
+              
+              {/* Search Results */}
+              {futState.memberSearchResults.length > 0 && (
+                <div className="max-h-40 overflow-y-auto space-y-2">
+                  {futState.memberSearchResults.map((user) => (
+                    <div key={user.uid} className="flex items-center justify-between bg-primary p-2 rounded">
+                      <div>
+                        <div className="text-white text-sm font-medium">{user.name}</div>
+                        <div className="text-gray-400 text-xs">{user.email}</div>
+                        {user.phone && (
+                          <div className="text-gray-400 text-xs">{user.phone}</div>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => futActions.handleAddMember(user)}
+                        className="bg-green-600 text-white px-3 py-1 rounded text-xs font-medium hover:bg-green-700 transition-colors"
+                      >
+                        Adicionar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {futState.memberSearchQuery && futState.memberSearchResults.length === 0 && (
+                <div className="text-gray-400 text-sm text-center py-2">
+                  Nenhum usuário encontrado
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-gray-600 flex space-x-3">
+              <button
+                onClick={() => {
+                  futState.setShowAddMemberModal(false);
+                  futState.setMemberSearchQuery('');
+                  futState.setMemberSearchResults([]);
+                }}
+                className="flex-1 px-4 py-2 bg-gray-600 text-white rounded text-sm font-medium hover:bg-gray-700 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Make Admin Modal */}
+      {futState.showMakeAdminModal && futState.selectedMemberForAdmin && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+          <div className="bg-primary-lighter rounded-lg w-full max-w-md">
+            <div className="flex items-center justify-between p-4 border-b border-gray-600">
+              <h2 className="text-white text-xl font-semibold">
+                {futState.fut?.admins?.[futState.selectedMemberForAdmin.uid] ? 'Gerenciar Administrador' : 'Tornar Administrador'}
+              </h2>
+              <button
+                onClick={() => {
+                  futState.setShowMakeAdminModal(false);
+                  futState.setSelectedMemberForAdmin(null);
+                }}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-4">
+              {futState.selectedMemberForAdmin.uid === futState.fut?.adminId ? (
+                <div>
+                  <p className="text-white mb-4">
+                    <strong>{futState.selectedMemberForAdmin.name}</strong> é o administrador original deste fut.
+                  </p>
+                  <p className="text-yellow-400 text-sm mb-4">
+                    O administrador original não pode ter seus privilégios removidos.
+                  </p>
+                </div>
+              ) : futState.fut?.admins?.[futState.selectedMemberForAdmin.uid] ? (
+                <div>
+                  <p className="text-white mb-4">
+                    <strong>{futState.selectedMemberForAdmin.name}</strong> é um administrador deste fut.
+                  </p>
+                  <p className="text-gray-400 text-sm mb-4">
+                    Você pode remover os privilégios administrativos deste usuário.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-white mb-4">
+                    Tem certeza que deseja tornar <strong>{futState.selectedMemberForAdmin.name}</strong> administrador deste fut?
+                  </p>
+                  <p className="text-gray-400 text-sm mb-4">
+                    O usuário terá acesso a todas as funcionalidades administrativas.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-gray-600 flex space-x-3">
+              <button
+                onClick={() => {
+                  futState.setShowMakeAdminModal(false);
+                  futState.setSelectedMemberForAdmin(null);
+                }}
+                className="flex-1 px-4 py-2 bg-gray-600 text-white rounded text-sm font-medium hover:bg-gray-700 transition-colors"
+              >
+                Cancelar
+              </button>
+              {futState.selectedMemberForAdmin.uid !== futState.fut?.adminId && (
+                <>
+                  {futState.fut?.admins?.[futState.selectedMemberForAdmin.uid] ? (
+                    <button
+                      onClick={futActions.handleRemoveAdmin}
+                      className="flex-1 px-4 py-2 bg-red-600 text-white rounded text-sm font-medium hover:bg-red-700 transition-colors"
+                    >
+                      Remover Administrador
+                    </button>
+                  ) : (
+                    <button
+                      onClick={futActions.handleMakeAdmin}
+                      className="flex-1 px-4 py-2 bg-yellow-600 text-white rounded text-sm font-medium hover:bg-yellow-700 transition-colors"
+                    >
+                      Tornar Administrador
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 </div>
 );
 }

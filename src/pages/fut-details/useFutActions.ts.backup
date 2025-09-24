@@ -807,60 +807,94 @@ export function useFutActions(
     futState.setShowGuestModal(false);
   }, [futState]);
 
-  // Função para adicionar convidado avulso (exatamente como no backup)
+  // Função para adicionar convidado (exatamente como no backup)
   const handleAddGuest = useCallback(async () => {
-    if (!fut || !isAdmin || futState.guestType !== 'avulso') return;
+    if (!futState.guestType) return;
 
     try {
-      if (!futState.guestName.trim()) {
-        alert('Por favor, digite o nome do convidado');
-        return;
+      console.log('Adding guest:', { guestType: futState.guestType, guestName: futState.guestName, guestEmail: futState.guestEmail, guestPhone: futState.guestPhone });
+      
+      if (futState.guestType === 'avulso') {
+        if (!futState.guestName.trim()) {
+          alert('Por favor, digite o nome do convidado');
+          return;
+        }
+        
+        // Add guest to confirmed list
+        const guestId = `guest_${Date.now()}`;
+        futState.setConfirmedMembers([...futState.confirmedMembers, guestId]);
+        
+        // Store guest data in members object
+        const guestData = {
+          name: futState.guestName,
+          isGuest: true,
+          guestType: 'avulso'
+        };
+        
+        futState.setMembers((prev: any) => ({
+          ...prev,
+          [guestId]: guestData
+        }));
+        
+        alert('Convidado avulso adicionado com sucesso!');
+      } else {
+        if (!futState.guestEmail.trim() && !futState.guestPhone.trim()) {
+          alert('Por favor, digite o email ou telefone do convidado');
+          return;
+        }
+        
+        // Search for existing user
+        const usersRef = ref(database, 'users');
+        const snapshot = await get(usersRef);
+        const users = snapshot.val() || {};
+        
+        console.log('Searching for user with email/phone:', { guestEmail: futState.guestEmail, guestPhone: futState.guestPhone });
+        console.log('All users:', users);
+        
+        const existingUser = Object.entries(users).find(([uid, userData]: [string, any]) => 
+          userData.email === futState.guestEmail || userData.phone === futState.guestPhone
+        );
+        
+        if (existingUser) {
+          const [uid, userData] = existingUser;
+          const userDataTyped = userData as any;
+          console.log('Found existing user:', { uid, userData: userDataTyped });
+          futState.setConfirmedMembers([...futState.confirmedMembers, uid]);
+          futState.setMembers((prev: any) => ({
+            ...prev,
+            [uid]: { 
+              name: userDataTyped.name || '',
+              email: userDataTyped.email || '',
+              phone: userDataTyped.phone || '',
+              photoURL: userDataTyped.photoURL || '',
+              position: userDataTyped.position || '',
+              isGuest: true, 
+              guestType: 'cadastrado' 
+            }
+          }));
+          alert('Convidado cadastrado adicionado com sucesso!');
+        } else {
+          alert('Usuário não encontrado com este email/telefone');
+          return;
+        }
       }
-      
-      // Add guest to confirmed list
-      const guestId = `guest_${Date.now()}`;
-      const guestData = {
-        name: futState.guestName,
-        isGuest: true,
-        guestType: 'avulso'
-      };
-      
-      // Save to Firebase first
-      await set(ref(database, `futs/${fut.id}/members/${guestId}`), guestData);
-      
-      const newConfirmedMembers = [...futState.confirmedMembers, guestId];
-      await set(ref(database, `futs/${fut.id}/confirmedMembers`), newConfirmedMembers);
-      
-      // Update state after Firebase save
-      const newMembers = {
-        ...futState.members,
-        [guestId]: guestData
-      };
-      
-      // Store guest data in members object
-      futState.setMembers(newMembers);
-      
-      // Add to confirmed members
-      futState.setConfirmedMembers(newConfirmedMembers);
-      
-      alert('Convidado avulso adicionado com sucesso!');
       
       // Reset form (exatamente como no backup)
       futState.setGuestName('');
+      futState.setGuestEmail('');
+      futState.setGuestPhone('');
       futState.setGuestType(null);
       futState.setShowGuestTypeModal(false);
     } catch (error: any) {
       console.error('Error adding guest:', error);
       alert(`Erro ao adicionar convidado: ${error?.message || 'Erro desconhecido'}`);
     }
-  }, [fut, isAdmin, futState]);
+  }, [futState]);
 
   // Função para adicionar usuário pesquisado
   const handleAddSearchedUser = useCallback(async (userData: any) => {
-    if (!fut || !isAdmin) return;
-
     try {
-      console.log('Adding searched user as member:', userData);
+      console.log('Adding searched user as guest:', userData);
       
       // Validate userData
       if (!userData.uid) {
@@ -870,49 +904,28 @@ export function useFutActions(
       if (!userData.name) {
         throw new Error('Nome do usuário não encontrado');
       }
-
-      // Verificar se já é membro
-      if (futState.members[userData.uid]) {
-        alert('Este usuário já é membro do fut');
-        return;
-      }
       
-      // Update state first
-      const newConfirmedMembers = [...futState.confirmedMembers, userData.uid];
-      const newMembers = {
-        ...futState.members,
+      futState.setConfirmedMembers([...futState.confirmedMembers, userData.uid]);
+      futState.setMembers((prev: any) => ({
+        ...prev,
         [userData.uid]: { 
           ...userData, 
-          isGuest: false, 
-          guestType: null 
+          isGuest: true, 
+          guestType: 'cadastrado' 
         }
-      };
-      
-      // Add to confirmed members
-      futState.setConfirmedMembers(newConfirmedMembers);
-      
-      // Store user data in members object (as regular member, not guest)
-      futState.setMembers(newMembers);
-      
-      // Save to Firebase
-      await set(ref(database, `futs/${fut.id}/members/${userData.uid}`), {
-        ...userData, 
-        isGuest: false, 
-        guestType: null 
-      });
-      await set(ref(database, `futs/${fut.id}/confirmedMembers`), newConfirmedMembers);
+      }));
       
       // Reset search
       futState.setSearchQuery('');
       futState.setSearchResults([]);
       futState.setShowGuestTypeModal(false);
       
-      alert('Usuário adicionado como membro do fut!');
+      alert('Convidado cadastrado adicionado com sucesso!');
     } catch (error: any) {
       console.error('Error adding searched user:', error);
-      alert(`Erro ao adicionar usuário: ${error?.message || 'Erro desconhecido'}`);
+      alert(`Erro ao adicionar convidado: ${error?.message || 'Erro desconhecido'}`);
     }
-  }, [fut, isAdmin, futState]);
+  }, [futState]);
 
   // Função para pesquisar usuários
   const handleSearchUsers = useCallback(async () => {
@@ -1113,133 +1126,6 @@ export function useFutActions(
     }, 'image/png');
   }, [fut, futState]);
 
-  // Função para remover membro da lista de confirmados (não remove da lista de membros)
-  const handleRemoveFromConfirmed = useCallback(async (memberId: string) => {
-    if (!fut || !isAdmin) return;
-
-    // Get member name for confirmation
-    const memberData = futState.members[memberId];
-    const memberName = memberData?.name || 'este membro';
-
-    // Confirm removal
-    const confirmed = window.confirm(
-      `Tem certeza que deseja remover ${memberName} da lista de confirmados?\n\nIsso gerará uma vaga no fut.`
-    );
-
-    if (!confirmed) return;
-
-    try {
-      // Remove from confirmed members
-      const newConfirmedMembers = futState.confirmedMembers.filter((id: string) => id !== memberId);
-      
-      // Update local state first
-      futState.setConfirmedMembers(newConfirmedMembers);
-      
-      // Save to Firebase
-      await set(ref(database, `futs/${fut.id}/confirmedMembers`), newConfirmedMembers);
-      
-      alert(`${memberName} foi removido da lista de confirmados!`);
-    } catch (error) {
-      console.error('Error removing from confirmed:', error);
-      alert('Erro ao remover da lista de confirmados');
-    }
-  }, [fut, isAdmin, futState]);
-
-  // Função para tornar membro admin
-  const handleMakeAdmin = useCallback(async () => {
-    if (!futState.selectedMemberForAdmin || !fut) return;
-    
-    try {
-      const futRef = ref(database, `futs/${fut.id}`);
-      const updatedAdmins = {
-        ...fut.admins,
-        [futState.selectedMemberForAdmin.uid]: true
-      };
-      
-      await set(futRef, {
-        ...fut,
-        admins: updatedAdmins
-      });
-      
-      futState.setFut((prev: any) => prev ? { ...prev, admins: updatedAdmins } : null);
-      futState.setShowMakeAdminModal(false);
-      futState.setSelectedMemberForAdmin(null);
-      alert(`${futState.selectedMemberForAdmin.name} agora é administrador!`);
-    } catch (error) {
-      console.error('Error making admin:', error);
-      alert('Erro ao tornar administrador');
-    }
-  }, [fut, futState]);
-
-  // Função para remover privilégios de admin
-  const handleRemoveAdmin = useCallback(async () => {
-    if (!futState.selectedMemberForAdmin || !fut) return;
-    
-    // Check if trying to remove original admin
-    if (futState.selectedMemberForAdmin.uid === fut.adminId) {
-      alert('Não é possível remover os privilégios do administrador original!');
-      futState.setShowMakeAdminModal(false);
-      futState.setSelectedMemberForAdmin(null);
-      return;
-    }
-    
-    try {
-      const futRef = ref(database, `futs/${fut.id}`);
-      const updatedAdmins = { ...fut.admins };
-      delete updatedAdmins[futState.selectedMemberForAdmin.uid];
-      
-      await set(futRef, {
-        ...fut,
-        admins: updatedAdmins
-      });
-      
-      futState.setFut((prev: any) => prev ? { ...prev, admins: updatedAdmins } : null);
-      futState.setShowMakeAdminModal(false);
-      futState.setSelectedMemberForAdmin(null);
-      alert(`${futState.selectedMemberForAdmin.name} não é mais administrador!`);
-    } catch (error) {
-      console.error('Error removing admin:', error);
-      alert('Erro ao remover administrador');
-    }
-  }, [fut, futState]);
-
-  // Função para adicionar membro
-  const handleAddMember = useCallback(async (userToAdd: any) => {
-    if (!fut || !isAdmin) return;
-
-    try {
-      // Add to members
-      const newMembers = {
-        ...futState.members,
-        [userToAdd.uid]: {
-          name: userToAdd.name,
-          email: userToAdd.email,
-          phone: userToAdd.phone,
-          photoURL: userToAdd.photoURL,
-          position: userToAdd.position,
-          isGuest: false,
-          guestType: null
-        }
-      };
-
-      // Update Firebase
-      await set(ref(database, `futs/${fut.id}/members`), newMembers);
-      
-      // Update local state
-      futState.setMembers(newMembers);
-      
-      // Close modal and reset search
-      futState.setShowAddMemberModal(false);
-      futState.setMemberSearchQuery('');
-      futState.setMemberSearchResults([]);
-      
-      alert(`${userToAdd.name} foi adicionado como membro do fut!`);
-    } catch (error) {
-      console.error('Error adding member:', error);
-      alert('Erro ao adicionar membro');
-    }
-  }, [fut, isAdmin, futState]);
-
   return {
     getRecurrenceText,
     handleReleaseList,
@@ -1272,11 +1158,5 @@ export function useFutActions(
     handleAddPlayerToTeam,
     handleRemovePlayerFromTeam,
     handleSaveTeams,
-    handleRemoveFromConfirmed,
-
-    // Funções de gerenciamento de membros e admins
-    handleMakeAdmin,
-    handleRemoveAdmin,
-    handleAddMember,
   };
 }

@@ -72,16 +72,6 @@ export function useFutState() {
   const [selectedDate, setSelectedDate] = useState('');
   const [loadingRanking, setLoadingRanking] = useState(false);
 
-  // Estados de Convidado
-  const [showGuestModal, setShowGuestModal] = useState(false);
-  const [showGuestTypeModal, setShowGuestTypeModal] = useState(false);
-  const [guestType, setGuestType] = useState<'avulso' | 'cadastrado' | null>(null);
-  const [guestName, setGuestName] = useState('');
-  const [guestEmail, setGuestEmail] = useState('');
-  const [guestPhone, setGuestPhone] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-
   // Estados de Edição de Informações
   const [editDescription, setEditDescription] = useState('');
   const [editName, setEditName] = useState('');
@@ -179,10 +169,18 @@ export function useFutState() {
         if (memberIds.length > 0) {
           const memberPromises = memberIds.map(async (memberId) => {
             try {
-              const memberRef = ref(database, `users/${memberId}`);
-              const memberSnapshot = await get(memberRef);
-              const memberData = memberSnapshot.val();
-              return { [memberId]: memberData };
+              // Check if it's a guest (starts with 'guest_')
+              if (memberId.startsWith('guest_')) {
+                // For guests, use the data directly from futData.members
+                const guestData = futData.members[memberId];
+                return { [memberId]: guestData };
+              } else {
+                // For regular users, fetch from users table
+                const memberRef = ref(database, `users/${memberId}`);
+                const memberSnapshot = await get(memberRef);
+                const memberData = memberSnapshot.val();
+                return { [memberId]: memberData };
+              }
             } catch (error) {
               console.error(`Error loading member ${memberId}:`, error);
               return { [memberId]: null };
@@ -253,6 +251,7 @@ export function useFutState() {
     // Estados principais
     fut,
     members,
+    setMembers,
     activeTab,
     setActiveTab,
     loading,
@@ -354,23 +353,11 @@ export function useFutState() {
     loadingRanking,
     setLoadingRanking,
 
-    // Estados de Convidado
+    // Estados de Convidado (modais)
     showGuestModal,
     setShowGuestModal,
     showGuestTypeModal,
     setShowGuestTypeModal,
-    guestType,
-    setGuestType,
-    guestName,
-    setGuestName,
-    guestEmail,
-    setGuestEmail,
-    guestPhone,
-    setGuestPhone,
-    searchQuery,
-    setSearchQuery,
-    searchResults,
-    setSearchResults,
 
     // Estados de Edição
     editDescription,
@@ -397,6 +384,10 @@ export function useFutState() {
     setEditingAnnouncement,
 
     // Estados de Administração
+    showAddMemberModal,
+    setShowAddMemberModal,
+    showMakeAdminModal,
+    setShowMakeAdminModal,
     selectedMemberForAdmin,
     setSelectedMemberForAdmin,
     deleteConfirmation,
