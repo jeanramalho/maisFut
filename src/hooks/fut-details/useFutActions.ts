@@ -54,6 +54,11 @@ export function useFutActions(
       
       let newConfirmed;
       if (isIn) {
+        // Verificar se o usuário já está na lista antes de adicionar
+        if (currentConfirmed.includes(user.uid)) {
+          // Usuário já está na lista, não fazer nada
+          return;
+        }
         newConfirmed = [...currentConfirmed, user.uid];
       } else {
         newConfirmed = currentConfirmed.filter((id: string) => id !== user.uid);
