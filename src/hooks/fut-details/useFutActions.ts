@@ -502,7 +502,7 @@ export function useFutActions(
           title: futState.announcementTitle,
           message: futState.announcementMessage,
           authorId: user.uid,
-          authorName: user.displayName || 'Administrador',
+          authorName: futState.members[user.uid]?.name || user.displayName || 'Administrador',
           createdAt: Date.now(),
           updatedAt: Date.now()
         };
