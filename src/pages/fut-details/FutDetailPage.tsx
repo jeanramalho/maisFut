@@ -197,18 +197,16 @@ return (
               scrollbarWidth: 'thin',
               scrollbarColor: '#6b7280 transparent'
             }}>
-              {isAdmin && (
-                <button
-                  onClick={() => futState.setActiveTab('fut')}
-                  className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
-                    futState.activeTab === 'fut'
-                      ? 'bg-primary text-secondary'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  Fut
-                </button>
-              )}
+              <button
+                onClick={() => futState.setActiveTab('fut')}
+                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
+                  futState.activeTab === 'fut'
+                    ? 'bg-primary text-secondary'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                Fut
+              </button>
               {isAdmin && futState.futStarted && (
                 <>
                   <button
@@ -311,7 +309,7 @@ return (
 
       {/* Tab Content */}
       <div className="px-6 py-6">
-        {/* Fut Tab */}
+        {/* Fut Tab - Admin */}
         {futState.activeTab === 'fut' && isAdmin && (
           <div className="space-y-4">
             {!futState.futStarted ? (
@@ -770,6 +768,164 @@ return (
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Fut Tab - Player */}
+        {futState.activeTab === 'fut' && !isAdmin && (
+          <div className="space-y-4">
+            {!futState.futStarted ? (
+              <>
+                {/* Next Game Section */}
+                <div className="bg-primary-lighter rounded-lg p-4">
+                  <h3 className="text-white text-lg font-semibold mb-3">
+                    Próximo Fut - {new Date().toLocaleDateString('pt-BR')}
+                  </h3>
+                  
+                  <div className="space-y-4">
+                    {!futState.listReleased ? (
+                      /* List not released yet */
+                      <div className="text-center py-6">
+                        <div className="text-gray-400 text-sm mb-2">
+                          ⏳ Aguardando liberação da lista
+                        </div>
+                        <p className="text-gray-500 text-xs">
+                          O administrador ainda não liberou a lista do fut
+                        </p>
+                      </div>
+                    ) : (
+                      /* List released - show confirmation buttons */
+                      <div className="space-y-4">
+                        <div className="text-center">
+                          <p className="text-gray-300 text-sm mb-4">
+                            A lista foi liberada! Confirme sua presença:
+                          </p>
+                          
+                          <div className="flex space-x-3">
+                            <button 
+                              onClick={() => futActions.handleConfirmPresence(true)}
+                              disabled={futState.confirmedMembers.includes(user?.uid || '')}
+                              className={`flex-1 py-3 px-4 rounded-lg text-sm font-medium transition-colors ${
+                                futState.confirmedMembers.includes(user?.uid || '') 
+                                  ? 'bg-green-700 text-white cursor-not-allowed' 
+                                  : 'bg-green-600 text-white hover:bg-green-700'
+                              }`}
+                            >
+                              Tô Dentro
+                            </button>
+                            <button 
+                              onClick={() => futActions.handleConfirmPresence(false)}
+                              disabled={!futState.confirmedMembers.includes(user?.uid || '')}
+                              className={`flex-1 py-3 px-4 rounded-lg text-sm font-medium transition-colors ${
+                                !futState.confirmedMembers.includes(user?.uid || '') 
+                                  ? 'bg-red-700 text-white cursor-not-allowed' 
+                                  : 'bg-red-600 text-white hover:bg-red-700'
+                              }`}
+                            >
+                              Tô Fora
+                            </button>
+                          </div>
+                          
+                          {!futState.confirmedMembers.includes(user?.uid || '') && (
+                            <p className="text-gray-500 text-xs mt-2">
+                              Até o próximo fut! 👋
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Confirmed List Section - Only show after list is released */}
+                {futState.listReleased && (
+                  <div className="bg-primary-lighter rounded-lg p-4">
+                    <h3 className="text-white text-lg font-semibold mb-3">
+                      Lista de Confirmados ({futState.confirmedMembers.length}/{futState.releasedVagas})
+                    </h3>
+                    
+                    {/* Progress Bar */}
+                    <div className="mb-4">
+                      <div className="flex justify-between text-xs text-gray-400 mb-1">
+                        <span>Confirmados</span>
+                        <span>{futState.confirmedMembers.length}/{futState.releasedVagas}</span>
+                      </div>
+                      <div className="w-full bg-gray-700 rounded-full h-2">
+                        <div 
+                          className="bg-secondary h-2 rounded-full transition-all duration-300"
+                          style={{ 
+                            width: `${Math.min((futState.confirmedMembers.length / futState.releasedVagas) * 100, 100)}%` 
+                          }}
+                        ></div>
+                      </div>
+                    </div>
+                    
+                    {/* Confirmed Members List */}
+                    <div className="space-y-2">
+                      {futState.confirmedMembers.length === 0 ? (
+                        <p className="text-gray-400 text-sm text-center py-4">
+                          Nenhum jogador confirmado ainda
+                        </p>
+                      ) : (
+                        futState.confirmedMembers.map((memberId: string) => {
+                          const memberData = futState.members[memberId];
+                          return (
+                            <div key={memberId} className="flex items-center space-x-3 p-2 bg-primary rounded-lg">
+                              <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center flex-shrink-0">
+                                {memberData?.photoURL ? (
+                                  <Image
+                                    src={memberData.photoURL}
+                                    alt={memberData.name}
+                                    width={32}
+                                    height={32}
+                                    className="w-full h-full object-cover rounded-full"
+                                  />
+                                ) : (
+                                  <span className="text-primary font-bold text-sm">
+                                    {memberData?.name?.charAt(0).toUpperCase() || '?'}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-white text-sm font-medium truncate">
+                                  {memberData?.name || 'Jogador'}
+                                </p>
+                              </div>
+                              {memberId === user?.uid && (
+                                <div className="text-xs text-secondary font-medium">
+                                  Você
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              /* Fut started - show read-only info */
+              <div className="bg-primary-lighter rounded-lg p-4">
+                <h3 className="text-white text-lg font-semibold mb-3">
+                  Fut em Andamento - {new Date().toLocaleDateString('pt-BR')}
+                </h3>
+                
+                <div className="space-y-3">
+                  <div className="text-gray-400 text-sm">
+                    Vagas: {futState.releasedVagas}
+                  </div>
+                  
+                  <div className="text-gray-400 text-sm">
+                    Confirmados: {futState.confirmedMembers.length}
+                  </div>
+                  
+                  <div className="text-gray-400 text-sm">
+                    Status: {futState.futEnded ? 'Finalizado' : 'Em andamento'}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

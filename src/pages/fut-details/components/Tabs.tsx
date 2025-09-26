@@ -10,7 +10,7 @@ interface TabsProps {
 export default function Tabs({ activeTab, setActiveTab, isAdmin }: TabsProps) {
   const tabs = isAdmin 
     ? ['fut', 'members', 'occurrences', 'settings', 'times', 'data', 'ranking', 'info', 'announcements'] as TabType[]
-    : ['info', 'members', 'occurrences', 'ranking'] as TabType[];
+    : ['fut', 'info', 'members', 'occurrences', 'ranking'] as TabType[];
 
   return (
     <div className="bg-primary-lighter border-b border-gray-700">
