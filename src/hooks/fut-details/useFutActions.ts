@@ -481,9 +481,59 @@ export function useFutActions(
 
 
 
+  // Função para salvar anúncio
+  const handleSaveAnnouncement = useCallback(async () => {
+    if (!fut || !isAdmin || !user) return;
+
+    try {
+      const announcementsRef = ref(database, `futs/${fut.id}/announcements`);
+      
+      if (futState.editingAnnouncement) {
+        // Edit existing announcement
+        await set(ref(database, `futs/${fut.id}/announcements/${futState.editingAnnouncement.id}`), {
+          ...futState.editingAnnouncement,
+          title: futState.announcementTitle,
+          message: futState.announcementMessage,
+          updatedAt: Date.now()
+        });
+      } else {
+        // Create new announcement
+        const newAnnouncement = {
+          title: futState.announcementTitle,
+          message: futState.announcementMessage,
+          authorId: user.uid,
+          authorName: user.displayName || 'Administrador',
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        };
+        
+        const newAnnouncementRef = push(announcementsRef);
+        await set(newAnnouncementRef, newAnnouncement);
+      }
+      
+      // Reset form
+      futState.setAnnouncementTitle('');
+      futState.setAnnouncementMessage('');
+      futState.setEditingAnnouncement(null);
+      futState.setShowAnnouncementModal(false);
+      
+      // Reload announcements
+      futState.loadAnnouncements();
+      
+      alert('Aviso salvo com sucesso!');
+    } catch (error) {
+      console.error('Error saving announcement:', error);
+      alert('Erro ao salvar aviso');
+    }
+  }, [fut, isAdmin, user, futState]);
+
   // Função para deletar anúncio
   const handleDeleteAnnouncement = useCallback(async (announcementId: string) => {
     if (!fut || !isAdmin) return;
+
+    if (!confirm('Tem certeza que deseja excluir este aviso?')) {
+      return;
+    }
 
     try {
       const announcementRef = ref(database, `futs/${fut.id}/announcements/${announcementId}`);
@@ -1675,6 +1725,7 @@ export function useFutActions(
     handleGenerateImage,
     handleDownloadBolaCards,
     handleUpdateFutInfo,
+    handleSaveAnnouncement,
     handleDeleteAnnouncement,
     handleRemoveMember,
     handleTeamDraw,

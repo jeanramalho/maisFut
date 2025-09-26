@@ -1521,32 +1521,50 @@ return (
                 </div>
               ) : (
                 futState.announcements.map((announcement) => (
-                  <div key={announcement.id} className="bg-primary-lighter rounded-lg p-4">
+                  <div key={announcement.id} className="bg-primary-lighter rounded-lg p-4 cursor-pointer hover:bg-primary-darker transition-colors">
                     <div className="flex items-start justify-between mb-2">
                       <h4 className="text-white font-semibold text-base">{announcement.title}</h4>
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => {
-                            futState.setEditingAnnouncement(announcement);
-                            futState.setAnnouncementTitle(announcement.title);
-                            futState.setAnnouncementMessage(announcement.message);
-                            futState.setShowAnnouncementModal(true);
-                          }}
-                          className="text-blue-400 hover:text-blue-300 text-sm"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          onClick={() => futActions.handleDeleteAnnouncement(announcement.id)}
-                          className="text-red-400 hover:text-red-300 text-sm"
-                        >
-                          Excluir
-                        </button>
-                      </div>
+                      {isAdmin && (
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              futState.setEditingAnnouncement(announcement);
+                              futState.setAnnouncementTitle(announcement.title);
+                              futState.setAnnouncementMessage(announcement.message);
+                              futState.setShowAnnouncementModal(true);
+                            }}
+                            className="text-blue-400 hover:text-blue-300 text-sm"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              futActions.handleDeleteAnnouncement(announcement.id);
+                            }}
+                            className="text-red-400 hover:text-red-300 text-sm"
+                          >
+                            Excluir
+                          </button>
+                        </div>
+                      )}
                     </div>
-                    <p className="text-gray-300 text-sm mb-3">{announcement.message}</p>
-                    <div className="text-xs text-gray-500">
-                      Por {announcement.authorName} • {new Date(announcement.createdAt).toLocaleDateString('pt-BR')}
+                    <div 
+                      onClick={() => {
+                        futState.setSelectedAnnouncement(announcement);
+                        futState.setShowAnnouncementViewModal(true);
+                      }}
+                    >
+                      <p className="text-gray-300 text-sm mb-3 line-clamp-3">
+                        {announcement.message.length > 150 
+                          ? `${announcement.message.substring(0, 150)}...` 
+                          : announcement.message
+                        }
+                      </p>
+                      <div className="text-xs text-gray-500">
+                        Por {announcement.authorName} • {new Date(announcement.createdAt).toLocaleDateString('pt-BR')}
+                      </div>
                     </div>
                   </div>
                 ))
@@ -2322,6 +2340,152 @@ return (
             Baixar Imagem
           </button>
         </div>
+      </div>
+    </div>
+  </div>
+)}
+
+{/* Modal de Criar/Editar Aviso */}
+{futState.showAnnouncementModal && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="bg-primary-lighter rounded-lg p-6 w-full max-w-md">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-white text-lg font-semibold">
+          {futState.editingAnnouncement ? 'Editar Aviso' : 'Novo Aviso'}
+        </h3>
+        <button
+          onClick={() => {
+            futState.setShowAnnouncementModal(false);
+            futState.setEditingAnnouncement(null);
+            futState.setAnnouncementTitle('');
+            futState.setAnnouncementMessage('');
+          }}
+          className="text-gray-400 hover:text-white"
+        >
+          <X size={24} />
+        </button>
+      </div>
+      
+      <div className="space-y-4">
+        <div>
+          <label className="block text-white text-sm font-medium mb-2">
+            Título
+          </label>
+          <input
+            type="text"
+            value={futState.announcementTitle}
+            onChange={(e) => futState.setAnnouncementTitle(e.target.value)}
+            className="w-full px-3 py-2 bg-primary border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-secondary"
+            placeholder="Digite o título do aviso"
+          />
+        </div>
+        
+        <div>
+          <label className="block text-white text-sm font-medium mb-2">
+            Mensagem
+          </label>
+          <textarea
+            value={futState.announcementMessage}
+            onChange={(e) => futState.setAnnouncementMessage(e.target.value)}
+            className="w-full px-3 py-2 bg-primary border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-secondary resize-none"
+            rows={4}
+            placeholder="Digite a mensagem do aviso"
+          />
+        </div>
+        
+        <div className="flex space-x-3">
+          <button
+            onClick={() => {
+              futState.setShowAnnouncementModal(false);
+              futState.setEditingAnnouncement(null);
+              futState.setAnnouncementTitle('');
+              futState.setAnnouncementMessage('');
+            }}
+            className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg text-sm font-medium hover:bg-gray-700 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={futActions.handleSaveAnnouncement}
+            disabled={!futState.announcementTitle.trim() || !futState.announcementMessage.trim()}
+            className="flex-1 px-4 py-2 bg-secondary text-primary rounded-lg text-sm font-medium hover:bg-secondary-darker transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Salvar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
+{/* Modal de Visualizar Aviso */}
+{futState.showAnnouncementViewModal && futState.selectedAnnouncement && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="bg-primary-lighter rounded-lg p-6 w-full max-w-lg">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-white text-lg font-semibold">
+          {futState.selectedAnnouncement.title}
+        </h3>
+        <button
+          onClick={() => {
+            futState.setShowAnnouncementViewModal(false);
+            futState.setSelectedAnnouncement(null);
+          }}
+          className="text-gray-400 hover:text-white"
+        >
+          <X size={24} />
+        </button>
+      </div>
+      
+      <div className="space-y-4">
+        <div className="bg-primary rounded-lg p-4">
+          <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">
+            {futState.selectedAnnouncement.message}
+          </p>
+        </div>
+        
+        <div className="flex items-center justify-between text-xs text-gray-500">
+          <span>
+            Por {futState.selectedAnnouncement.authorName}
+          </span>
+          <span>
+            {new Date(futState.selectedAnnouncement.createdAt).toLocaleDateString('pt-BR', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })}
+          </span>
+        </div>
+        
+        {isAdmin && (
+          <div className="flex space-x-3 pt-4 border-t border-gray-700">
+            <button
+              onClick={() => {
+                futState.setShowAnnouncementViewModal(false);
+                futState.setEditingAnnouncement(futState.selectedAnnouncement);
+                futState.setAnnouncementTitle(futState.selectedAnnouncement.title);
+                futState.setAnnouncementMessage(futState.selectedAnnouncement.message);
+                futState.setShowAnnouncementModal(true);
+                futState.setSelectedAnnouncement(null);
+              }}
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+            >
+              Editar
+            </button>
+            <button
+              onClick={() => {
+                futActions.handleDeleteAnnouncement(futState.selectedAnnouncement.id);
+                futState.setShowAnnouncementViewModal(false);
+                futState.setSelectedAnnouncement(null);
+              }}
+              className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
+            >
+              Excluir
+            </button>
+          </div>
+        )}
       </div>
     </div>
   </div>

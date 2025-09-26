@@ -25,6 +25,8 @@ export function useFutState() {
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [showEditInfoModal, setShowEditInfoModal] = useState(false);
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
+  const [showAnnouncementViewModal, setShowAnnouncementViewModal] = useState(false);
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState<any>(null);
   const [showMakeAdminModal, setShowMakeAdminModal] = useState(false);
   const [showDeleteDataModal, setShowDeleteDataModal] = useState(false);
   const [showDeleteFutModal, setShowDeleteFutModal] = useState(false);
@@ -207,6 +209,13 @@ export function useFutState() {
     return unsubscribeMembers;
   }, [id, user]);
 
+  // Carregar avisos quando a aba for ativada
+  useEffect(() => {
+    if (activeTab === 'announcements' && fut && isAdmin) {
+      loadAnnouncements();
+    }
+  }, [activeTab, fut, isAdmin]);
+
   // Carregar anúncios
   const loadAnnouncements = async () => {
     if (!fut || !isAdmin) return;
@@ -280,6 +289,10 @@ export function useFutState() {
     setShowEditInfoModal,
     showAnnouncementModal,
     setShowAnnouncementModal,
+    showAnnouncementViewModal,
+    setShowAnnouncementViewModal,
+    selectedAnnouncement,
+    setSelectedAnnouncement,
     showMakeAdminModal,
     setShowMakeAdminModal,
     selectedMemberForAdmin,
