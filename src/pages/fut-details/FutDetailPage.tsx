@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useFutState } from '@/hooks/fut-details/useFutState';
 import { useFutActions } from '@/hooks/fut-details/useFutActions';
 import { TabType } from '@/hooks/fut-details/types';
+import Tabs from './components/Tabs';
 
 export default function FutDetailPage() {
 const router = useRouter();
@@ -42,7 +43,7 @@ return (
       }
       return true; // Include everyone else (members and cadastrado guests)
     }).length;
-  const isAdmin = futState.isAdmin;
+  const isAdmin = futState.isAdmin || false;
 
 return (
 <div className="min-h-screen bg-primary">
@@ -59,7 +60,7 @@ return (
             <h1 className="text-white text-xl font-semibold">Detalhes do Fut</h1>
             {isAdmin && (
               <button
-                onClick={() => futState.setActiveTab('settings')}
+                onClick={() => futState.setActiveTab('configuracoes')}
                 className="ml-auto text-gray-400 hover:text-secondary transition-colors"
               >
                 <Settings size={24} />
@@ -174,138 +175,13 @@ return (
       </div>
 
       {/* Tabs */}
-      <div className="bg-primary-lighter border-b border-gray-700">
-        <div className="px-6">
-          <div className="flex items-center">
-            {/* Previous Tab Button */}
-            <button
-              onClick={() => {
-                const tabs = isAdmin 
-                  ? ['fut', 'times', 'data', 'info', 'members', 'announcements', 'ranking', 'settings'] as TabType[]
-                  : ['info', 'members', 'announcements', 'ranking'] as TabType[];
-                const currentIndex = tabs.indexOf(futState.activeTab);
-                const prevIndex = currentIndex > 0 ? currentIndex - 1 : tabs.length - 1;
-                futState.setActiveTab(tabs[prevIndex]);
-              }}
-              className="text-gray-400 hover:text-white transition-colors p-2 mr-2 flex-shrink-0"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            
-            {/* Tabs Container - Scrollable */}
-            <div className="flex space-x-1 overflow-x-auto flex-1 min-w-0 tabs-scrollbar" style={{
-              scrollbarWidth: 'thin',
-              scrollbarColor: '#6b7280 transparent'
-            }}>
-              <button
-                onClick={() => futState.setActiveTab('fut')}
-                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
-                  futState.activeTab === 'fut'
-                    ? 'bg-primary text-secondary'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                Fut
-              </button>
-              {isAdmin && futState.futStarted && (
-                <>
-                  <button
-                    onClick={() => futState.setActiveTab('times')}
-                    className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
-                      futState.activeTab === 'times'
-                        ? 'bg-primary text-secondary'
-                        : 'text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    Times
-                  </button>
-                  <button
-                    onClick={() => futState.setActiveTab('data')}
-                    className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
-                      futState.activeTab === 'data'
-                        ? 'bg-primary text-secondary'
-                        : 'text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    Dados
-                  </button>
-                </>
-              )}
-              <button
-                onClick={() => futState.setActiveTab('info')}
-                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
-                  futState.activeTab === 'info'
-                    ? 'bg-primary text-secondary'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                Info
-              </button>
-              <button
-                onClick={() => futState.setActiveTab('members')}
-                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
-                  futState.activeTab === 'members'
-                    ? 'bg-primary text-secondary'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                Membros ({memberCount})
-              </button>
-              {isAdmin && (
-                <button
-                  onClick={() => futState.setActiveTab('announcements')}
-                  className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
-                    futState.activeTab === 'announcements'
-                      ? 'bg-primary text-secondary'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  Avisos
-                </button>
-              )}
-              {isAdmin && (
-                <button
-                  onClick={() => futState.setActiveTab('ranking')}
-                  className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
-                    futState.activeTab === 'ranking'
-                      ? 'bg-primary text-secondary'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  Ranking
-                </button>
-              )}
-              {isAdmin && (
-                <button
-                  onClick={() => futState.setActiveTab('settings')}
-                  className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
-                    futState.activeTab === 'settings'
-                      ? 'bg-primary text-secondary'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  Configurações
-                </button>
-              )}
-            </div>
-
-            {/* Next Tab Button */}
-            <button
-              onClick={() => {
-                const tabs = isAdmin 
-                  ? ['fut', 'times', 'data', 'info', 'members', 'announcements', 'ranking', 'settings'] as TabType[]
-                  : ['info', 'members', 'announcements', 'ranking'] as TabType[];
-                const currentIndex = tabs.indexOf(futState.activeTab);
-                const nextIndex = currentIndex < tabs.length - 1 ? currentIndex + 1 : 0;
-                futState.setActiveTab(tabs[nextIndex]);
-              }}
-              className="text-gray-400 hover:text-white transition-colors p-2 ml-2 flex-shrink-0"
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
-        </div>
-      </div>
+      <Tabs 
+        activeTab={futState.activeTab} 
+        setActiveTab={futState.setActiveTab} 
+        isAdmin={isAdmin}
+        votingOpen={futState.votingOpen}
+        futStarted={futState.futStarted}
+      />
 
       {/* Tab Content */}
       <div className="px-6 py-6">
@@ -926,6 +802,73 @@ return (
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Voting Tab - Player */}
+        {futState.activeTab === 'voting' && !isAdmin && (
+          <div className="space-y-4">
+            <div className="bg-primary-lighter rounded-lg p-4">
+              <h3 className="text-white text-lg font-semibold mb-4">Votação - Avalie os Jogadores</h3>
+              <div className="space-y-4">
+                {Object.values(futState.teams).flat()
+                  .filter(playerId => {
+                    if (playerId === 'VAGA') return false;
+                    const player = futState.members[playerId];
+                    // Only members, not any type of guest
+                    return !player?.isGuest;
+                  })
+                  .map((playerId) => {
+                    const player = futState.members[playerId];
+                    const currentVote = futState.userVotes[user?.uid || '']?.[playerId] || 0;
+                    
+                    return (
+                      <div key={playerId} className="bg-primary p-3 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3 flex-1 min-w-0">
+                            {player?.photoURL ? (
+                              <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                                <Image
+                                  src={player.photoURL}
+                                  alt={player.name}
+                                  width={32}
+                                  height={32}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center flex-shrink-0">
+                                <span className="text-primary font-semibold text-xs">
+                                  {player?.name?.charAt(0).toUpperCase() || 'C'}
+                                </span>
+                              </div>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <span className="text-white text-sm font-medium truncate block">{player?.name || 'VAGA'}</span>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center space-x-0.5 ml-2 flex-shrink-0">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <button
+                                key={star}
+                                onClick={() => futActions.handleVote(playerId, star)}
+                                className={`w-6 h-6 rounded text-sm ${
+                                  star <= currentVote
+                                    ? 'text-yellow-400'
+                                    : 'text-gray-400 hover:text-yellow-300'
+                                }`}
+                              >
+                                ★
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
           </div>
         )}
 
@@ -1653,7 +1596,7 @@ return (
         )}
 
         {/* Announcements Tab */}
-        {futState.activeTab === 'announcements' && isAdmin && (
+        {futState.activeTab === 'avisos' && isAdmin && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-white text-lg font-semibold">Avisos</h3>
@@ -1730,7 +1673,7 @@ return (
         )}
 
         {/* Settings Tab */}
-        {futState.activeTab === 'settings' && isAdmin && (
+        {futState.activeTab === 'configuracoes' && isAdmin && (
           <div className="space-y-6">
             <h3 className="text-white text-lg font-semibold">Configurações</h3>
             
@@ -1758,7 +1701,7 @@ return (
               </button>
               
               <button 
-                onClick={() => futState.setActiveTab('announcements')}
+                onClick={() => futState.setActiveTab('avisos')}
                 className="w-full bg-purple-600 text-white py-3 rounded-lg font-medium hover:bg-purple-700 transition-colors"
               >
                 Gerenciar Avisos

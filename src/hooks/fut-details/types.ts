@@ -32,7 +32,7 @@ export interface UserData {
   guestType?: string;
 }
 
-export type TabType = 'fut' | 'members' | 'occurrences' | 'settings' | 'times' | 'data' | 'ranking' | 'info' | 'announcements';
+export type TabType = 'fut' | 'times' | 'data' | 'info' | 'members' | 'ranking' | 'configuracoes' | 'avisos' | 'voting';
 
 export type RankingType = 'pontuacao' | 'artilharia' | 'assistencias' | 'vitorias';
 

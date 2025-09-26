@@ -211,7 +211,7 @@ export function useFutState() {
 
   // Carregar avisos quando a aba for ativada
   useEffect(() => {
-    if (activeTab === 'announcements' && fut && isAdmin) {
+    if (activeTab === 'avisos' && fut && isAdmin) {
       loadAnnouncements();
     }
   }, [activeTab, fut, isAdmin]);
