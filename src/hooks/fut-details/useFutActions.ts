@@ -995,6 +995,72 @@ export function useFutActions(
   }, [futState]);
 
   // Função para baixar imagem dos cards de bola cheia e bola murcha
+  const handleUpdateFutInfo = useCallback(async () => {
+    if (!fut || !isAdmin) return;
+
+    try {
+      // Validações básicas
+      if (!futState.editName.trim()) {
+        alert('Nome é obrigatório');
+        return;
+      }
+
+      if (!futState.editTime.trim()) {
+        alert('Horário é obrigatório');
+        return;
+      }
+
+      if (!futState.editLocation.trim()) {
+        alert('Local é obrigatório');
+        return;
+      }
+
+      const maxVagas = parseInt(futState.editMaxVagas);
+      if (isNaN(maxVagas) || maxVagas <= 0) {
+        alert('Máximo de vagas deve ser um número válido maior que zero');
+        return;
+      }
+
+      const playersPerTeam = parseInt(futState.editPlayersPerTeam);
+      if (isNaN(playersPerTeam) || playersPerTeam <= 0) {
+        alert('Jogadores por time deve ser um número válido maior que zero');
+        return;
+      }
+
+      // Preparar dados para atualização
+      const updateData = {
+        name: futState.editName.trim(),
+        description: futState.editDescription.trim(),
+        time: futState.editTime.trim(),
+        location: futState.editLocation.trim(),
+        maxVagas: maxVagas,
+        playersPerTeam: playersPerTeam,
+        value: futState.editValue.trim(),
+        pixKey: futState.editPixKey.trim(),
+        futType: futState.editFutType,
+        updatedAt: new Date().toISOString()
+      };
+
+      // Atualizar no Firebase
+      const futRef = ref(database, `futs/${fut.id}`);
+      await update(futRef, updateData);
+
+      // Atualizar estado local
+      futState.setFut({
+        ...fut,
+        ...updateData
+      });
+
+      // Sair do modo de edição
+      futState.setIsEditingInfo(false);
+
+      alert('Informações atualizadas com sucesso!');
+    } catch (error: any) {
+      console.error('Error updating fut info:', error);
+      alert(`Erro ao atualizar informações: ${error?.message || 'Erro desconhecido'}`);
+    }
+  }, [fut, isAdmin, futState]);
+
   const handleDownloadBolaCards = useCallback(async () => {
     if (!futState.ranking || futState.ranking.length === 0) return;
     
@@ -1568,6 +1634,7 @@ export function useFutActions(
     handleUpdatePlayerStats,
     handleGenerateImage,
     handleDownloadBolaCards,
+    handleUpdateFutInfo,
     handleDeleteAnnouncement,
     handleRemoveMember,
     handleTeamDraw,

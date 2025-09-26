@@ -80,6 +80,12 @@ export function useFutState() {
   const [editLocation, setEditLocation] = useState('');
   const [editMaxVagas, setEditMaxVagas] = useState('');
   const [editPlayersPerTeam, setEditPlayersPerTeam] = useState('');
+  const [editValue, setEditValue] = useState('');
+  const [editPixKey, setEditPixKey] = useState('');
+  const [editFutType, setEditFutType] = useState<'quadra' | 'campo'>('quadra');
+  
+  // Estado de modo de edição
+  const [isEditingInfo, setIsEditingInfo] = useState(false);
 
   // Estados de Avisos
   const [announcements, setAnnouncements] = useState<any[]>([]);
@@ -264,6 +270,7 @@ export function useFutState() {
   return {
     // Estados principais
     fut,
+    setFut,
     members,
     setMembers,
     activeTab,
@@ -392,6 +399,14 @@ export function useFutState() {
     setEditMaxVagas,
     editPlayersPerTeam,
     setEditPlayersPerTeam,
+    editValue,
+    setEditValue,
+    editPixKey,
+    setEditPixKey,
+    editFutType,
+    setEditFutType,
+    isEditingInfo,
+    setIsEditingInfo,
 
     // Estados de Avisos
     announcements,

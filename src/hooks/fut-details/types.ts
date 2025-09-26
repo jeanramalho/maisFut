@@ -16,6 +16,9 @@ export interface Fut {
   location?: string;
   description?: string;
   time?: string;
+  value?: string;
+  pixKey?: string;
+  futType?: 'quadra' | 'campo';
   createdAt: number;
 }
 

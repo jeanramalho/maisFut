@@ -1,6 +1,6 @@
 import React from 'react';
 import { useRouter } from 'next/router';
-import { ArrowLeft, Settings, Users, Calendar, MapPin, Crown, X, ChevronLeft, ChevronRight, Copy, Edit, Save } from 'lucide-react';
+import { ArrowLeft, Settings, Users, Calendar, MapPin, Crown, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFutState } from '@/hooks/fut-details/useFutState';
@@ -484,36 +484,17 @@ return (
               {isAdmin && (
                 <button 
                   onClick={() => {
-                    if (futState.isEditingInfo) {
-                      // Salvar alterações
-                      futActions.handleUpdateFutInfo();
-                    } else {
-                      // Entrar no modo de edição
-                      futState.setEditName(futState.fut?.name || '');
-                      futState.setEditDescription(futState.fut?.description || '');
-                      futState.setEditTime(futState.fut?.time || '');
-                      futState.setEditLocation(futState.fut?.location || '');
-                      futState.setEditMaxVagas(futState.fut?.maxVagas?.toString() || '');
-                      futState.setEditPlayersPerTeam(futState.fut?.playersPerTeam?.toString() || '');
-                      futState.setEditValue(futState.fut?.value || '');
-                      futState.setEditPixKey(futState.fut?.pixKey || '');
-                      futState.setEditFutType(futState.fut?.futType || 'quadra');
-                      futState.setIsEditingInfo(true);
-                    }
+                    futState.setEditName(futState.fut?.name || '');
+                    futState.setEditDescription(futState.fut?.description || '');
+                    futState.setEditTime(futState.fut?.time || '');
+                    futState.setEditLocation(futState.fut?.location || '');
+                    futState.setEditMaxVagas(futState.fut?.maxVagas?.toString() || '');
+                    futState.setEditPlayersPerTeam(futState.fut?.playersPerTeam?.toString() || '');
+                    futState.setShowEditInfoModal(true);
                   }}
-                  className="bg-secondary text-primary px-4 py-2 rounded-lg text-sm font-medium hover:bg-secondary-darker transition-colors flex items-center gap-2"
+                  className="bg-secondary text-primary px-4 py-2 rounded-lg text-sm font-medium hover:bg-secondary-darker transition-colors"
                 >
-                  {futState.isEditingInfo ? (
-                    <>
-                      <Save size={16} />
-                      Salvar
-                    </>
-                  ) : (
-                    <>
-                      <Edit size={16} />
-                      Editar
-                    </>
-                  )}
+                  Editar
                 </button>
               )}
             </div>
@@ -527,17 +508,7 @@ return (
               <div className="space-y-3">
                 <div>
                   <span className="text-gray-400 text-sm">Nome:</span>
-                  {futState.isEditingInfo ? (
-                    <input
-                      type="text"
-                      value={futState.editName}
-                      onChange={(e) => futState.setEditName(e.target.value)}
-                      className="w-full mt-1 px-3 py-2 bg-primary border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-secondary"
-                      placeholder="Nome do fut"
-                    />
-                  ) : (
-                    <p className="text-white font-medium">{futState.fut?.name || 'Não definido'}</p>
-                  )}
+                  <p className="text-white font-medium">{futState.fut?.name || 'Não definido'}</p>
                 </div>
                 <div>
                   <span className="text-gray-400 text-sm">Tipo:</span>
@@ -551,43 +522,15 @@ return (
                     {futState.fut?.privacy === 'invite' ? 'Privado (por convite)' : 'Público'}
                   </p>
                 </div>
-                <div>
-                  <span className="text-gray-400 text-sm">Tipo de Fut:</span>
-                  {futState.isEditingInfo ? (
-                    <select
-                      value={futState.editFutType}
-                      onChange={(e) => futState.setEditFutType(e.target.value as 'quadra' | 'campo')}
-                      className="w-full mt-1 px-3 py-2 bg-primary border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-secondary"
-                    >
-                      <option value="quadra">Quadra</option>
-                      <option value="campo">Campo</option>
-                    </select>
-                  ) : (
-                    <p className="text-white font-medium">
-                      {futState.fut?.futType === 'quadra' ? 'Quadra' : 
-                       futState.fut?.futType === 'campo' ? 'Campo' : 'Não definido'}
-                    </p>
-                  )}
-                </div>
               </div>
             </div>
 
             {/* Descrição */}
             <div className="bg-primary-lighter rounded-lg p-4">
               <h4 className="text-white text-base font-semibold mb-3">Descrição</h4>
-              {futState.isEditingInfo ? (
-                <textarea
-                  value={futState.editDescription}
-                  onChange={(e) => futState.setEditDescription(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 bg-primary border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-secondary resize-none"
-                  rows={3}
-                  placeholder="Descrição do fut"
-                />
-              ) : (
-                <p className="text-gray-300 text-sm leading-relaxed">
-                  {futState.fut?.description || 'Nenhuma descrição disponível.'}
-                </p>
-              )}
+              <p className="text-gray-300 text-sm leading-relaxed">
+                {futState.fut?.description || 'Nenhuma descrição disponível.'}
+              </p>
             </div>
 
             {/* Detalhes do Jogo */}
@@ -596,117 +539,22 @@ return (
                 <Calendar size={18} className="mr-2" />
                 Detalhes do Jogo
               </h4>
-              <div className="space-y-3">
-                <div>
-                  <span className="text-gray-400 text-sm">Horário:</span>
-                  {futState.isEditingInfo ? (
-                    <input
-                      type="time"
-                      value={futState.editTime}
-                      onChange={(e) => futState.setEditTime(e.target.value)}
-                      className="w-full mt-1 px-3 py-2 bg-primary border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-secondary"
-                    />
-                  ) : (
-                    <p className="text-white font-medium">{futState.fut?.time || 'Não definido'}</p>
-                  )}
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Horário:</span>
+                  <span className="text-white font-medium">{futState.fut?.time || 'Não definido'}</span>
                 </div>
-                <div>
-                  <span className="text-gray-400 text-sm">Local:</span>
-                  {futState.isEditingInfo ? (
-                    <input
-                      type="text"
-                      value={futState.editLocation}
-                      onChange={(e) => futState.setEditLocation(e.target.value)}
-                      className="w-full mt-1 px-3 py-2 bg-primary border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-secondary"
-                      placeholder="Local do fut"
-                    />
-                  ) : (
-                    <p className="text-white font-medium">{futState.fut?.location || 'Não definido'}</p>
-                  )}
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Local:</span>
+                  <span className="text-white font-medium">{futState.fut?.location || 'Não definido'}</span>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <span className="text-gray-400 text-sm">Jogadores por time:</span>
-                    {futState.isEditingInfo ? (
-                      <input
-                        type="number"
-                        value={futState.editPlayersPerTeam}
-                        onChange={(e) => futState.setEditPlayersPerTeam(e.target.value)}
-                        className="w-full mt-1 px-3 py-2 bg-primary border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-secondary"
-                        placeholder="Ex: 5"
-                        min="1"
-                      />
-                    ) : (
-                      <p className="text-white font-medium">{futState.fut?.playersPerTeam || 'Não definido'}</p>
-                    )}
-                  </div>
-                  <div>
-                    <span className="text-gray-400 text-sm">Máximo de vagas:</span>
-                    {futState.isEditingInfo ? (
-                      <input
-                        type="number"
-                        value={futState.editMaxVagas}
-                        onChange={(e) => futState.setEditMaxVagas(e.target.value)}
-                        className="w-full mt-1 px-3 py-2 bg-primary border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-secondary"
-                        placeholder="Ex: 20"
-                        min="1"
-                      />
-                    ) : (
-                      <p className="text-white font-medium">{futState.fut?.maxVagas || 'Não definido'}</p>
-                    )}
-                  </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Jogadores por time:</span>
+                  <span className="text-white font-medium">{futState.fut?.playersPerTeam || 'Não definido'}</span>
                 </div>
-              </div>
-            </div>
-
-            {/* Pagamento */}
-            <div className="bg-primary-lighter rounded-lg p-4">
-              <h4 className="text-white text-base font-semibold mb-3 flex items-center">
-                <Crown size={18} className="mr-2" />
-                Pagamento
-              </h4>
-              <div className="space-y-3">
-                <div>
-                  <span className="text-gray-400 text-sm">Valor:</span>
-                  {futState.isEditingInfo ? (
-                    <input
-                      type="text"
-                      value={futState.editValue}
-                      onChange={(e) => futState.setEditValue(e.target.value)}
-                      className="w-full mt-1 px-3 py-2 bg-primary border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-secondary"
-                      placeholder="Ex: R$ 15,00"
-                    />
-                  ) : (
-                    <p className="text-white font-medium">{futState.fut?.value || 'Não definido'}</p>
-                  )}
-                </div>
-                <div>
-                  <span className="text-gray-400 text-sm">Chave PIX:</span>
-                  {futState.isEditingInfo ? (
-                    <input
-                      type="text"
-                      value={futState.editPixKey}
-                      onChange={(e) => futState.setEditPixKey(e.target.value)}
-                      className="w-full mt-1 px-3 py-2 bg-primary border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-secondary"
-                      placeholder="Chave PIX para pagamento"
-                    />
-                  ) : (
-                    <div className="flex items-center gap-2 mt-1">
-                      <p className="text-white font-medium flex-1">{futState.fut?.pixKey || 'Não definido'}</p>
-                      {futState.fut?.pixKey && (
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(futState.fut?.pixKey || '');
-                            alert('Chave PIX copiada!');
-                          }}
-                          className="p-2 bg-secondary text-primary rounded-lg hover:bg-secondary-darker transition-colors"
-                          title="Copiar chave PIX"
-                        >
-                          <Copy size={16} />
-                        </button>
-                      )}
-                    </div>
-                  )}
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Máximo de vagas:</span>
+                  <span className="text-white font-medium">{futState.fut?.maxVagas || 'Não definido'}</span>
                 </div>
               </div>
             </div>
@@ -1453,166 +1301,17 @@ return (
                                       </div>
                                     </div>
                                   </div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Announcements Tab */}
-        {futState.activeTab === 'announcements' && isAdmin && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-white text-lg font-semibold">Avisos</h3>
-              <button 
-                onClick={() => {
-                  futState.setEditingAnnouncement(null);
-                  futState.setAnnouncementTitle('');
-                  futState.setAnnouncementMessage('');
-                  futState.setShowAnnouncementModal(true);
-                }}
-                className="bg-secondary text-primary px-4 py-2 rounded-lg text-sm font-medium hover:bg-secondary-darker transition-colors"
-              >
-                Novo Aviso
-              </button>
-            </div>
-            
-            <div className="space-y-3">
-              {futState.announcements.length === 0 ? (
-                <div className="bg-primary-lighter rounded-lg p-6 text-center">
-                  <p className="text-gray-400">Nenhum aviso ainda.</p>
-                </div>
-              ) : (
-                futState.announcements.map((announcement) => (
-                  <div key={announcement.id} className="bg-primary-lighter rounded-lg p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <h4 className="text-white font-semibold text-base">{announcement.title}</h4>
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => {
-                            futState.setEditingAnnouncement(announcement);
-                            futState.setAnnouncementTitle(announcement.title);
-                            futState.setAnnouncementMessage(announcement.message);
-                            futState.setShowAnnouncementModal(true);
-                          }}
-                          className="text-blue-400 hover:text-blue-300 text-sm"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          onClick={() => futActions.handleDeleteAnnouncement(announcement.id)}
-                          className="text-red-400 hover:text-red-300 text-sm"
-                        >
-                          Excluir
-                        </button>
-                      </div>
-                    </div>
-                    <p className="text-gray-300 text-sm mb-3">{announcement.message}</p>
-                    <div className="text-xs text-gray-500">
-                      Por {announcement.authorName} • {new Date(announcement.createdAt).toLocaleDateString('pt-BR')}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Settings Tab */}
-        {futState.activeTab === 'settings' && isAdmin && (
-          <div className="space-y-6">
-            <h3 className="text-white text-lg font-semibold">Configurações</h3>
-            
-            <div className="space-y-4">
-              <button 
-                onClick={() => {
-                  futState.setEditName(futState.fut?.name || '');
-                  futState.setEditDescription(futState.fut?.description || '');
-                  futState.setEditTime(futState.fut?.time || '');
-                  futState.setEditLocation(futState.fut?.location || '');
-                  futState.setEditMaxVagas(futState.fut?.maxVagas?.toString() || '');
-                  futState.setEditPlayersPerTeam(futState.fut?.playersPerTeam?.toString() || '');
-                  futState.setShowEditInfoModal(true);
-                }}
-                className="w-full bg-secondary text-primary py-3 rounded-lg font-medium hover:bg-secondary-darker transition-colors"
-              >
-                Editar Informações do Fut
-              </button>
-              
-              <button 
-                onClick={() => futState.setActiveTab('members')}
-                className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
-              >
-                Gerenciar Membros
-              </button>
-              
-              <button 
-                onClick={() => futState.setActiveTab('announcements')}
-                className="w-full bg-purple-600 text-white py-3 rounded-lg font-medium hover:bg-purple-700 transition-colors"
-              >
-                Gerenciar Avisos
-              </button>
-              
-              <div className="pt-4 border-t border-gray-700">
-                <button 
-                  onClick={() => futState.setShowDeleteDataModal(true)}
-                  className="w-full bg-orange-600 text-white py-3 rounded-lg font-medium hover:bg-orange-700 transition-colors"
-                >
-                  Excluir Dados do Fut
-                </button>
-              </div>
-              
-              <div className="pt-2">
-                <button 
-                  onClick={() => futState.setShowDeleteFutModal(true)}
-                  className="w-full bg-red-600 text-white py-3 rounded-lg font-medium hover:bg-red-700 transition-colors"
-                >
-                  Excluir Fut
-                </button>
-              </div>
-            </div>
-          </div>
         )}
       </div>
 
-      {/* Image Modal */}
-      {futState.showImageModal && futState.fut.photoURL && (
-        <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
-          <div className="max-w-4xl w-full p-4">
-            <div className="relative">
-              <img
-                src={futState.fut.photoURL}
-                alt={futState.fut.name}
-                className="w-full rounded-lg"
-              />
-              <button
-                onClick={() => futState.setShowImageModal(false)}
-                className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors"
-              >
-                <X size={20} />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Team Draw Modal */}
-      {futState.showTeamDrawModal && (
+      {/* Edit Info Modal */}
+      {futState.showEditInfoModal && (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
-          <div className="bg-primary-lighter rounded-lg w-full max-w-md">
+          <div className="bg-primary-lighter rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-4 border-b border-gray-600">
-              <h2 className="text-white text-xl font-semibold">Sorteio de Times</h2>
+              <h2 className="text-white text-xl font-semibold">Editar Informações do Fut</h2>
               <button
-                onClick={() => futState.setShowTeamDrawModal(false)}
+                onClick={() => futState.setShowEditInfoModal(false)}
                 className="text-gray-400 hover:text-white transition-colors"
               >
                 <X size={24} />
@@ -1620,400 +1319,120 @@ return (
             </div>
 
             <div className="p-4 space-y-4">
+              {/* Nome */}
               <div>
                 <label className="block text-white text-sm font-medium mb-2">
-                  Quantidade de Times
+                  Nome *
                 </label>
-                <input
-                  type="number"
-                  min="2"
-                  max="10"
-                  value={futState.teamCount}
-                  onChange={(e) => futState.setTeamCount(e.target.value)}
-                  className="w-full px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
-                  placeholder="Ex: 2"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-white text-sm font-medium mb-2">
-                  Jogadores por Time
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="15"
-                  value={futState.playersPerTeam}
-                  onChange={(e) => futState.setPlayersPerTeam(e.target.value)}
-                  className="w-full px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
-                  placeholder="Ex: 5"
-                />
-              </div>
-              
-              <div className="flex space-x-3">
-                <button
-                  onClick={() => futState.setShowTeamDrawModal(false)}
-                  className="flex-1 px-4 py-2 bg-gray-600 text-white rounded text-sm font-medium hover:bg-gray-700 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={futActions.handleTeamDraw}
-                  className="flex-1 px-4 py-2 bg-secondary text-primary rounded text-sm font-medium hover:bg-secondary-darker transition-colors"
-                >
-                  Gerar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Team Select Modal */}
-      {futState.showTeamSelectModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
-          <div className="bg-primary-lighter rounded-lg w-full max-w-md">
-            <div className="flex items-center justify-between p-4 border-b border-gray-600">
-              <h2 className="text-white text-xl font-semibold">Escolher Times</h2>
-              <button
-                onClick={() => futState.setShowTeamSelectModal(false)}
-                className="text-gray-400 hover:text-white transition-colors"
-              >
-                <X size={24} />
-              </button>
-            </div>
-
-            <div className="p-4 space-y-4">
-              <div>
-                <label className="block text-white text-sm font-medium mb-2">
-                  Quantidade de Times
-                </label>
-                <input
-                  type="number"
-                  min="2"
-                  max="10"
-                  value={futState.teamCount}
-                  onChange={(e) => futState.setTeamCount(e.target.value)}
-                  className="w-full px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
-                  placeholder="Ex: 2"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-white text-sm font-medium mb-2">
-                  Jogadores por Time
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="15"
-                  value={futState.playersPerTeam}
-                  onChange={(e) => futState.setPlayersPerTeam(e.target.value)}
-                  className="w-full px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
-                  placeholder="Ex: 5"
-                />
-              </div>
-              
-              <div className="flex space-x-3">
-                <button
-                  onClick={() => futState.setShowTeamSelectModal(false)}
-                  className="flex-1 px-4 py-2 bg-gray-600 text-white rounded text-sm font-medium hover:bg-gray-700 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={futActions.handleTeamSelect}
-                  className="flex-1 px-4 py-2 bg-secondary text-primary rounded text-sm font-medium hover:bg-secondary-darker transition-colors"
-                >
-                  Escolher
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Team Selection Interface */}
-      {futState.selectedTeam && Object.keys(futState.teams).length > 0 && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
-          <div className="bg-primary-lighter rounded-lg w-full max-w-2xl max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-4 border-b border-gray-600">
-              <h2 className="text-white text-xl font-semibold">Selecionar Times</h2>
-              <button
-                onClick={() => {
-                  futState.setSelectedTeam(null);
-                  futActions.handleSaveTeams();
-                }}
-                className="text-gray-400 hover:text-white transition-colors"
-              >
-                <X size={24} />
-              </button>
-            </div>
-
-            <div className="p-4 space-y-4">
-              {/* Team Filters */}
-              <div className="flex flex-wrap gap-2">
-                {Object.keys(futState.teams).map(teamName => (
-                  <button
-                    key={teamName}
-                    onClick={() => futState.setSelectedTeam(teamName)}
-                    className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                      futState.selectedTeam === teamName
-                        ? 'bg-secondary text-primary'
-                        : 'bg-gray-600 text-white hover:bg-gray-700'
-                    }`}
-                  >
-                    {teamName} ({futState.teams[teamName].length}/{futState.playersPerTeam})
-                  </button>
-                ))}
-              </div>
-
-              {/* Selected Team */}
-              {futState.selectedTeam && (
-                <div className="space-y-3">
-                  <h3 className="text-white font-semibold">{futState.selectedTeam}</h3>
-                  
-                  {/* Team Members */}
-                  <div className="space-y-2">
-                    {futState.teams[futState.selectedTeam].map((playerId, index) => {
-                      const player = futState.members[playerId];
-                      return (
-                        <div key={playerId} className="flex items-center justify-between bg-primary p-2 rounded">
-                          <span className="text-white text-sm">
-                            {index + 1}- {player?.name || 'Convidado'}
-                          </span>
-                          <button
-                            onClick={() => futActions.handleRemovePlayerFromTeam(playerId, futState.selectedTeam!)}
-                            className="w-6 h-6 bg-red-600 text-white rounded text-xs font-bold hover:bg-red-700 transition-colors"
-                          >
-                            -
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Available Players */}
-                  <div className="space-y-2">
-                    <h4 className="text-white font-medium">Jogadores Disponíveis</h4>
-                    {futState.confirmedMembers
-                      .filter(playerId => !Object.values(futState.teams).flat().includes(playerId))
-                      .map(playerId => {
-                        const player = futState.members[playerId];
-                        const canAdd = futState.selectedTeam ? futState.teams[futState.selectedTeam].length < parseInt(futState.playersPerTeam || futState.fut?.playersPerTeam?.toString() || '5') : false;
-                        
-                        return (
-                          <div key={playerId} className="flex items-center justify-between bg-primary p-2 rounded">
-                            <span className="text-white text-sm">{player?.name || 'VAGA'}</span>
-                            {canAdd && (
-                              <button
-                                onClick={() => futActions.handleAddPlayerToTeam(playerId, futState.selectedTeam!)}
-                                className="w-6 h-6 bg-green-600 text-white rounded text-xs font-bold hover:bg-green-700 transition-colors"
-                              >
-                                +
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Save Button */}
-            <div className="p-4 border-t border-gray-600">
-              <button
-                onClick={() => {
-                  futActions.handleSaveTeams();
-                  futState.setSelectedTeam(null);
-                }}
-                className="w-full px-4 py-2 bg-secondary text-primary rounded text-sm font-medium hover:bg-secondary-darker transition-colors"
-              >
-                Salvar Times
-              </button>
-            </div>
-</div>
-</div>
-)}
-
-{/* Guest Modal */}
-{futState.showGuestModal && (
-  <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
-    <div className="bg-primary-lighter rounded-lg w-full max-w-md">
-      <div className="flex items-center justify-between p-4 border-b border-gray-600">
-        <h2 className="text-white text-xl font-semibold">Adicionar Convidado</h2>
-        <button
-          onClick={() => futState.setShowGuestModal(false)}
-          className="text-gray-400 hover:text-white transition-colors"
-        >
-          <X size={24} />
-        </button>
-      </div>
-
-      <div className="p-4 space-y-4">
-        <div className="space-y-2">
-          <button 
-            onClick={() => futActions.handleGuestTypeSelect('avulso')}
-            className="w-full bg-blue-600 text-white py-2 rounded text-sm font-medium hover:bg-blue-700 transition-colors"
-          >
-            Convidado Avulso (Apenas Nome)
-          </button>
-          <button 
-            onClick={() => futActions.handleGuestTypeSelect('cadastrado')}
-            className="w-full bg-green-600 text-white py-2 rounded text-sm font-medium hover:bg-green-700 transition-colors"
-          >
-            Convidado Cadastrado (Email/Telefone)
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-)}
-
-{/* Guest Type Modal */}
-{futState.showGuestTypeModal && (
-  <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
-    <div className="bg-primary-lighter rounded-lg w-full max-w-md">
-      <div className="flex items-center justify-between p-4 border-b border-gray-600">
-        <h2 className="text-white text-xl font-semibold">
-          {futState.guestType === 'avulso' ? 'Convidado Avulso' : 'Convidado Cadastrado'}
-        </h2>
-        <button
-          onClick={() => {
-            futState.setShowGuestTypeModal(false);
-            futState.setGuestType(null);
-            futState.setGuestName('');
-            futState.setGuestEmail('');
-            futState.setGuestPhone('');
-          }}
-          className="text-gray-400 hover:text-white transition-colors"
-        >
-          <X size={24} />
-        </button>
-      </div>
-
-      <div className="p-4 space-y-4">
-        {futState.guestType === 'avulso' ? (
-          <div>
-            <label className="block text-white text-sm font-medium mb-2">
-              Nome do Convidado
-            </label>
-            <input
-              type="text"
-              value={futState.guestName}
-              onChange={(e) => futState.setGuestName(e.target.value)}
-              className="w-full px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
-              placeholder="Digite o nome do convidado"
-            />
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <div>
-              <label className="block text-white text-sm font-medium mb-2">
-                Buscar Usuário
-              </label>
-              <div className="flex space-x-2">
                 <input
                   type="text"
-                  value={futState.searchQuery}
-                  onChange={(e) => futState.setSearchQuery(e.target.value)}
-                  className="flex-1 px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
-                  placeholder="Digite email ou telefone"
+                  value={futState.editName}
+                  onChange={(e) => futState.setEditName(e.target.value)}
+                  className="w-full px-3 py-2 bg-primary border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
+                  placeholder="Nome do fut"
                 />
+              </div>
+
+              {/* Descrição */}
+              <div>
+                <label className="block text-white text-sm font-medium mb-2">
+                  Descrição
+                </label>
+                <textarea
+                  value={futState.editDescription}
+                  onChange={(e) => futState.setEditDescription(e.target.value)}
+                  className="w-full px-3 py-2 bg-primary border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-secondary resize-none"
+                  placeholder="Descrição do fut"
+                  rows={3}
+                />
+              </div>
+
+              {/* Horário */}
+              <div>
+                <label className="block text-white text-sm font-medium mb-2">
+                  Horário *
+                </label>
+                <input
+                  type="text"
+                  value={futState.editTime}
+                  onChange={(e) => futState.setEditTime(e.target.value)}
+                  className="w-full px-3 py-2 bg-primary border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
+                  placeholder="Ex: 19:00"
+                />
+              </div>
+
+              {/* Local */}
+              <div>
+                <label className="block text-white text-sm font-medium mb-2">
+                  Local *
+                </label>
+                <input
+                  type="text"
+                  value={futState.editLocation}
+                  onChange={(e) => futState.setEditLocation(e.target.value)}
+                  className="w-full px-3 py-2 bg-primary border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
+                  placeholder="Local do fut"
+                />
+              </div>
+
+              {/* Máximo de vagas */}
+              <div>
+                <label className="block text-white text-sm font-medium mb-2">
+                  Máximo de vagas *
+                </label>
+                <input
+                  type="number"
+                  value={futState.editMaxVagas}
+                  onChange={(e) => futState.setEditMaxVagas(e.target.value)}
+                  className="w-full px-3 py-2 bg-primary border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
+                  placeholder="Ex: 20"
+                  min="1"
+                />
+              </div>
+
+              {/* Jogadores por time */}
+              <div>
+                <label className="block text-white text-sm font-medium mb-2">
+                  Jogadores por time *
+                </label>
+                <input
+                  type="number"
+                  value={futState.editPlayersPerTeam}
+                  onChange={(e) => futState.setEditPlayersPerTeam(e.target.value)}
+                  className="w-full px-3 py-2 bg-primary border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
+                  placeholder="Ex: 5"
+                  min="1"
+                />
+              </div>
+
+              {/* Botões */}
+              <div className="flex space-x-3 pt-4">
                 <button
-                  onClick={futActions.handleSearchUsers}
-                  className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700 transition-colors"
+                  onClick={() => futState.setShowEditInfoModal(false)}
+                  className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700 transition-colors"
                 >
-                  Buscar
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => futActions.handleUpdateFutInfo()}
+                  className="flex-1 px-4 py-2 bg-secondary text-primary rounded-lg font-medium hover:bg-secondary-darker transition-colors"
+                >
+                  Salvar
                 </button>
               </div>
             </div>
-            
-            {/* Search Results */}
-            {futState.searchResults.length > 0 && (
-              <div className="max-h-40 overflow-y-auto space-y-2">
-                {futState.searchResults.map((user) => (
-                  <div key={user.uid} className="flex items-center justify-between bg-primary p-2 rounded">
-                    <div>
-                      <div className="text-white text-sm font-medium">{user.name}</div>
-                      <div className="text-gray-400 text-xs">{user.email}</div>
-                      {user.phone && (
-                        <div className="text-gray-400 text-xs">{user.phone}</div>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => {
-                        if (futState.guestType === 'cadastrado') {
-                          futActions.handleAddRegisteredGuest(user);
-                        } else {
-                          futActions.handleAddSearchedUser(user);
-                        }
-                      }}
-                      className="bg-green-600 text-white px-3 py-1 rounded text-xs font-medium hover:bg-green-700 transition-colors"
-                    >
-                      {futState.guestType === 'cadastrado' ? 'Adicionar como Convidado' : 'Adicionar como Membro'}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            
-            {futState.searchQuery && futState.searchResults.length === 0 && (
-              <div className="text-gray-400 text-sm text-center py-2">
-                Nenhum usuário encontrado
-              </div>
-            )}
           </div>
-        )}
-
-        <div className="flex space-x-3">
-          <button
-            onClick={() => {
-              futState.setShowGuestTypeModal(false);
-              futState.setGuestType(null);
-              futState.setGuestName('');
-              futState.setGuestEmail('');
-              futState.setGuestPhone('');
-            }}
-            className="flex-1 px-4 py-2 bg-gray-600 text-white rounded text-sm font-medium hover:bg-gray-700 transition-colors"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={() => {
-              if (futState.guestType === 'avulso') {
-                futActions.handleAddGuest();
-              } else if (futState.guestType === 'cadastrado') {
-                // Para convidados cadastrados, focar no campo de busca
-                const searchInput = document.querySelector('input[placeholder="Digite email ou telefone"]') as HTMLInputElement;
-                if (searchInput) {
-                  searchInput.focus();
-                }
-              }
-            }}
-            className="flex-1 px-4 py-2 bg-secondary text-primary rounded text-sm font-medium hover:bg-secondary-darker transition-colors"
-          >
-            {futState.guestType === 'avulso' ? 'Adicionar' : 'Focar Busca'}
-          </button>
         </div>
-      </div>
-    </div>
-  </div>
-)}
+      )}
 
-      {/* Add Member Modal */}
-      {futState.showAddMemberModal && (
+      {/* Edit Info Modal */}
+      {futState.showEditInfoModal && (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
-          <div className="bg-primary-lighter rounded-lg w-full max-w-md">
+          <div className="bg-primary-lighter rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-4 border-b border-gray-600">
-              <h2 className="text-white text-xl font-semibold">Adicionar Membro</h2>
+              <h2 className="text-white text-xl font-semibold">Editar Informações do Fut</h2>
               <button
-                onClick={() => {
-                  futState.setShowAddMemberModal(false);
-                  futState.setMemberSearchQuery('');
-                  futState.setMemberSearchResults([]);
-                }}
+                onClick={() => futState.setShowEditInfoModal(false)}
                 className="text-gray-400 hover:text-white transition-colors"
               >
                 <X size={24} />
@@ -2021,283 +1440,113 @@ return (
             </div>
 
             <div className="p-4 space-y-4">
+              {/* Nome */}
               <div>
                 <label className="block text-white text-sm font-medium mb-2">
-                  Buscar Usuário
+                  Nome *
                 </label>
-                <div className="flex space-x-2">
-                  <input
-                    type="text"
-                    value={futState.memberSearchQuery}
-                    onChange={(e) => futState.setMemberSearchQuery(e.target.value)}
-                    className="flex-1 px-3 py-2 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
-                    placeholder="Digite email ou telefone"
-                  />
-                  <button
-                    onClick={futActions.handleSearchMembers}
-                    className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700 transition-colors"
-                  >
-                    Buscar
-                  </button>
-                </div>
+                <input
+                  type="text"
+                  value={futState.editName}
+                  onChange={(e) => futState.setEditName(e.target.value)}
+                  className="w-full px-3 py-2 bg-primary border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
+                  placeholder="Nome do fut"
+                />
               </div>
-              
-              {/* Search Results */}
-              {futState.memberSearchResults.length > 0 && (
-                <div className="max-h-40 overflow-y-auto space-y-2">
-                  {futState.memberSearchResults.map((user) => (
-                    <div key={user.uid} className="flex items-center justify-between bg-primary p-2 rounded">
-                      <div>
-                        <div className="text-white text-sm font-medium">{user.name}</div>
-                        <div className="text-gray-400 text-xs">{user.email}</div>
-                        {user.phone && (
-                          <div className="text-gray-400 text-xs">{user.phone}</div>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => futActions.handleAddMember(user)}
-                        className="bg-green-600 text-white px-3 py-1 rounded text-xs font-medium hover:bg-green-700 transition-colors"
-                      >
-                        Adicionar
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              {futState.memberSearchQuery && futState.memberSearchResults.length === 0 && (
-                <div className="text-gray-400 text-sm text-center py-2">
-                  Nenhum usuário encontrado
-                </div>
-              )}
-            </div>
 
-            <div className="p-4 border-t border-gray-600 flex space-x-3">
-              <button
-                onClick={() => {
-                  futState.setShowAddMemberModal(false);
-                  futState.setMemberSearchQuery('');
-                  futState.setMemberSearchResults([]);
-                }}
-                className="flex-1 px-4 py-2 bg-gray-600 text-white rounded text-sm font-medium hover:bg-gray-700 transition-colors"
-              >
-                Cancelar
-              </button>
+              {/* Descrição */}
+              <div>
+                <label className="block text-white text-sm font-medium mb-2">
+                  Descrição
+                </label>
+                <textarea
+                  value={futState.editDescription}
+                  onChange={(e) => futState.setEditDescription(e.target.value)}
+                  className="w-full px-3 py-2 bg-primary border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-secondary resize-none"
+                  placeholder="Descrição do fut"
+                  rows={3}
+                />
+              </div>
+
+              {/* Horário */}
+              <div>
+                <label className="block text-white text-sm font-medium mb-2">
+                  Horário *
+                </label>
+                <input
+                  type="text"
+                  value={futState.editTime}
+                  onChange={(e) => futState.setEditTime(e.target.value)}
+                  className="w-full px-3 py-2 bg-primary border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
+                  placeholder="Ex: 19:00"
+                />
+              </div>
+
+              {/* Local */}
+              <div>
+                <label className="block text-white text-sm font-medium mb-2">
+                  Local *
+                </label>
+                <input
+                  type="text"
+                  value={futState.editLocation}
+                  onChange={(e) => futState.setEditLocation(e.target.value)}
+                  className="w-full px-3 py-2 bg-primary border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
+                  placeholder="Local do fut"
+                />
+              </div>
+
+              {/* Máximo de vagas */}
+              <div>
+                <label className="block text-white text-sm font-medium mb-2">
+                  Máximo de vagas *
+                </label>
+                <input
+                  type="number"
+                  value={futState.editMaxVagas}
+                  onChange={(e) => futState.setEditMaxVagas(e.target.value)}
+                  className="w-full px-3 py-2 bg-primary border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
+                  placeholder="Ex: 20"
+                  min="1"
+                />
+              </div>
+
+              {/* Jogadores por time */}
+              <div>
+                <label className="block text-white text-sm font-medium mb-2">
+                  Jogadores por time *
+                </label>
+                <input
+                  type="number"
+                  value={futState.editPlayersPerTeam}
+                  onChange={(e) => futState.setEditPlayersPerTeam(e.target.value)}
+                  className="w-full px-3 py-2 bg-primary border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-secondary"
+                  placeholder="Ex: 5"
+                  min="1"
+                />
+              </div>
+
+              {/* Botões */}
+              <div className="flex space-x-3 pt-4">
+                <button
+                  onClick={() => futState.setShowEditInfoModal(false)}
+                  className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => futActions.handleUpdateFutInfo()}
+                  className="flex-1 px-4 py-2 bg-secondary text-primary rounded-lg font-medium hover:bg-secondary-darker transition-colors"
+                >
+                  Salvar
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
-
-      {/* Make Admin Modal */}
-      {futState.showMakeAdminModal && futState.selectedMemberForAdmin && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
-          <div className="bg-primary-lighter rounded-lg w-full max-w-md">
-            <div className="flex items-center justify-between p-4 border-b border-gray-600">
-              <h2 className="text-white text-xl font-semibold">
-                {futState.fut?.admins?.[futState.selectedMemberForAdmin.uid] ? 'Gerenciar Administrador' : 'Tornar Administrador'}
-              </h2>
-              <button
-                onClick={() => {
-                  futState.setShowMakeAdminModal(false);
-                  futState.setSelectedMemberForAdmin(null);
-                }}
-                className="text-gray-400 hover:text-white transition-colors"
-              >
-                <X size={24} />
-              </button>
-            </div>
-
-            <div className="p-4">
-              {futState.selectedMemberForAdmin.uid === futState.fut?.adminId ? (
-                <div>
-                  <p className="text-white mb-4">
-                    <strong>{futState.selectedMemberForAdmin.name}</strong> é o administrador original deste fut.
-                  </p>
-                  <p className="text-yellow-400 text-sm mb-4">
-                    O administrador original não pode ter seus privilégios removidos.
-                  </p>
-                </div>
-              ) : futState.fut?.admins?.[futState.selectedMemberForAdmin.uid] ? (
-                <div>
-                  <p className="text-white mb-4">
-                    <strong>{futState.selectedMemberForAdmin.name}</strong> é um administrador deste fut.
-                  </p>
-                  <p className="text-gray-400 text-sm mb-4">
-                    Você pode remover os privilégios administrativos deste usuário.
-                  </p>
-                </div>
-              ) : (
-                <div>
-                  <p className="text-white mb-4">
-                    Tem certeza que deseja tornar <strong>{futState.selectedMemberForAdmin.name}</strong> administrador deste fut?
-                  </p>
-                  <p className="text-gray-400 text-sm mb-4">
-                    O usuário terá acesso a todas as funcionalidades administrativas.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="p-4 border-t border-gray-600 flex space-x-3">
-              <button
-                onClick={() => {
-                  futState.setShowMakeAdminModal(false);
-                  futState.setSelectedMemberForAdmin(null);
-                }}
-                className="flex-1 px-4 py-2 bg-gray-600 text-white rounded text-sm font-medium hover:bg-gray-700 transition-colors"
-              >
-                Cancelar
-              </button>
-              {futState.selectedMemberForAdmin.uid !== futState.fut?.adminId && (
-                <>
-                  {futState.fut?.admins?.[futState.selectedMemberForAdmin.uid] ? (
-                    <button
-                      onClick={futActions.handleRemoveAdmin}
-                      className="flex-1 px-4 py-2 bg-red-600 text-white rounded text-sm font-medium hover:bg-red-700 transition-colors"
-                    >
-                      Remover Administrador
-                    </button>
-                  ) : (
-                    <button
-                      onClick={futActions.handleMakeAdmin}
-                      className="flex-1 px-4 py-2 bg-yellow-600 text-white rounded text-sm font-medium hover:bg-yellow-700 transition-colors"
-                    >
-                      Tornar Administrador
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-{/* Bola Cheia e Bola Murcha Modal */}
-{futState.showBolaCardsModal && futState.ranking && futState.ranking.length >= 1 && (
-  <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
-    <div className="bg-primary-lighter rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-      <div className="flex items-center justify-between p-4 border-b border-gray-600">
-        <h2 className="text-white text-xl font-semibold">Bola Cheia e Bola Murcha</h2>
-        <button
-          onClick={() => futState.setShowBolaCardsModal(false)}
-          className="text-gray-400 hover:text-white transition-colors"
-        >
-          <X size={24} />
-        </button>
-      </div>
-      
-      <div className="p-4">
-        <div className="flex flex-row gap-4">
-          {/* Bola Cheia Card */}
-          <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-xl p-4 shadow-lg w-1/2">
-            {/* Imagem da bola cheia - menor e centralizada */}
-            <div className="flex justify-center mb-3">
-              <Image
-                src="/bola-cheia.png"
-                alt="Bola Cheia"
-                width={80}
-                height={80}
-                className="mx-auto"
-              />
-            </div>
-            
-            {/* Card com blur para avatar e nome - centralizado */}
-            <div className="flex justify-center mb-3">
-              <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-lg px-2 py-1.5 flex items-center space-x-2">
-                {futState.members[futState.ranking[0].playerId]?.photoURL ? (
-                  <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
-                    <Image
-                      src={futState.members[futState.ranking[0].playerId]?.photoURL || ''}
-                      alt={futState.ranking[0].name}
-                      width={32}
-                      height={32}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                ) : (
-                  <div className="w-8 h-8 bg-white bg-opacity-30 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-white font-bold text-xs">
-                      {futState.ranking[0].name?.charAt(0).toUpperCase() || 'C'}
-                    </span>
-                  </div>
-                )}
-                <div className="text-white font-medium text-xs truncate max-w-[100px]">{futState.ranking[0].name}</div>
-              </div>
-            </div>
-            
-            {/* Pontuação com # */}
-            <div className="text-white text-base font-bold text-center">
-              #{futState.ranking[0].score}
-            </div>
-          </div>
-
-          {/* Bola Murcha Card */}
-          <div className="bg-gradient-to-br from-red-600 to-red-700 rounded-xl p-4 shadow-lg w-1/2">
-            {/* Imagem da bola murcha - menor e centralizada */}
-            <div className="flex justify-center mb-3">
-              <Image
-                src="/bola-murcha.png"
-                alt="Bola Murcha"
-                width={80}
-                height={80}
-                className="mx-auto"
-              />
-            </div>
-            
-            {/* Card com blur para avatar e nome - centralizado */}
-            <div className="flex justify-center mb-3">
-              {futState.ranking.length > 1 ? (
-                <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-lg px-2 py-1.5 flex items-center space-x-2">
-                  {futState.members[futState.ranking[futState.ranking.length - 1].playerId]?.photoURL ? (
-                    <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
-                      <Image
-                        src={futState.members[futState.ranking[futState.ranking.length - 1].playerId]?.photoURL || ''}
-                        alt={futState.ranking[futState.ranking.length - 1].name}
-                        width={32}
-                        height={32}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-8 h-8 bg-white bg-opacity-30 rounded-full flex items-center justify-center flex-shrink-0">
-                      <span className="text-white font-bold text-xs">
-                        {futState.ranking[futState.ranking.length - 1].name?.charAt(0).toUpperCase() || 'C'}
-                      </span>
-                    </div>
-                  )}
-                  <div className="text-white font-medium text-xs truncate max-w-[100px]">{futState.ranking[futState.ranking.length - 1].name}</div>
-                </div>
-              ) : (
-                <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-lg px-2 py-1.5">
-                  <div className="text-white text-xs opacity-60 text-center">
-                    Aguardando mais jogadores
-                  </div>
-                </div>
-              )}
-            </div>
-            
-            {/* Pontuação com # */}
-            {futState.ranking.length > 1 && (
-              <div className="text-white text-base font-bold text-center">
-                #{futState.ranking[futState.ranking.length - 1].score}
-              </div>
-            )}
-          </div>
-        </div>
-        
-        {/* Download Button */}
-        <div className="mt-6 text-center">
-          <button
-            onClick={() => futActions.handleDownloadBolaCards()}
-            className="bg-secondary text-primary px-8 py-3 rounded-lg text-lg font-medium hover:bg-secondary-darker transition-colors"
-          >
-            Baixar Imagem
-          </button>
-        </div>
-      </div>
     </div>
-  </div>
-)}
-</div>
-);
+  );
 }
+
+export default FutDetailPage;
