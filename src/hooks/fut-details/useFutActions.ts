@@ -509,12 +509,18 @@ export function useFutActions(
     }
 
     try {
+      console.log('Removing member:', memberId, memberName);
+      
+      // Use set with null instead of remove to ensure listener triggers
       const futRef = ref(database, `futs/${fut.id}/members/${memberId}`);
-      await remove(futRef);
+      await set(futRef, null);
+      console.log('Member removed from Firebase successfully');
 
+      // Force local state update immediately
       futState.setMembers((prev: any) => {
         const newMembers = { ...prev };
         delete newMembers[memberId];
+        console.log('Updated local members state:', newMembers);
         return newMembers;
       });
 
@@ -1575,26 +1581,55 @@ export function useFutActions(
   const handleAddMember = useCallback(async (userToAdd: any) => {
     if (!fut || !isAdmin) return;
 
+    // Validar se o usuário tem id
+    if (!userToAdd.id) {
+      console.error('User ID is missing:', userToAdd);
+      alert('Erro: Usuário não possui ID válido');
+      return;
+    }
+
     try {
+      console.log('Adding member:', userToAdd);
+      console.log('Current members:', futState.members);
+      console.log('Fut ID:', fut.id);
+      
       // Add to members
       const newMembers = {
         ...futState.members,
-        [userToAdd.uid]: {
-          name: userToAdd.name,
-          email: userToAdd.email,
-          phone: userToAdd.phone,
-          photoURL: userToAdd.photoURL,
-          position: userToAdd.position,
+        [userToAdd.id]: {
+          name: userToAdd.name || '',
+          email: userToAdd.email || '',
+          phone: userToAdd.phone || '',
+          photoURL: userToAdd.photoURL || '',
+          position: userToAdd.position || '',
           isGuest: false,
           guestType: null
         }
       };
 
-      // Update Firebase
-      await set(ref(database, `futs/${fut.id}/members`), newMembers);
+      console.log('New members object:', newMembers);
+
+      // Update Firebase - usando a mesma abordagem do handleAddSearchedUser
+      console.log('Updating Firebase...');
+      await set(ref(database, `futs/${fut.id}/members/${userToAdd.id}`), {
+        name: userToAdd.name || '',
+        email: userToAdd.email || '',
+        phone: userToAdd.phone || '',
+        photoURL: userToAdd.photoURL || '',
+        position: userToAdd.position || '',
+        isGuest: false,
+        guestType: null
+      });
+      console.log('Firebase updated successfully');
       
       // Update local state
-      futState.setMembers(newMembers);
+      console.log('Updating local state...');
+      console.log('Previous members:', futState.members);
+      console.log('New members to set:', newMembers);
+      
+      // Force state update with a new object reference
+      futState.setMembers({ ...newMembers });
+      console.log('Local state updated successfully');
       
       // Close modal and reset search
       futState.setShowAddMemberModal(false);
@@ -1602,8 +1637,13 @@ export function useFutActions(
       futState.setMemberSearchResults([]);
       
       alert(`${userToAdd.name} foi adicionado como membro do fut!`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding member:', error);
+      console.error('Error details:', {
+        message: error?.message,
+        code: error?.code,
+        stack: error?.stack
+      });
       alert('Erro ao adicionar membro');
     }
   }, [fut, isAdmin, futState]);

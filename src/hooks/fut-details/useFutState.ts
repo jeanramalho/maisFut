@@ -109,6 +109,8 @@ export function useFutState() {
     const futRef = ref(database, `futs/${id}`);
     const unsubscribe = onValue(futRef, async (snapshot) => {
       try {
+        console.log('Firebase listener triggered - updating fut data');
+        console.log('Snapshot data:', snapshot.val());
         const futData = snapshot.val();
         
         if (!futData) {
@@ -171,46 +173,7 @@ export function useFutState() {
         setRankingType(futData.rankingType);
       }
 
-        // Load members data
-        const memberIds = Object.keys(futData.members || {});
-        const allMembers: Record<string, any> = {};
-        
-        if (memberIds.length > 0) {
-          const memberPromises = memberIds.map(async (memberId) => {
-            try {
-              // Check if it's a guest (starts with 'guest_')
-              if (memberId.startsWith('guest_')) {
-                // For guests, use the data directly from futData.members
-                const guestData = futData.members[memberId];
-                return { [memberId]: guestData };
-              } else {
-                // For regular users, fetch from users table
-                const memberRef = ref(database, `users/${memberId}`);
-                const memberSnapshot = await get(memberRef);
-                const memberData = memberSnapshot.val();
-                return { [memberId]: memberData };
-              }
-            } catch (error) {
-              console.error(`Error loading member ${memberId}:`, error);
-              return { [memberId]: null };
-            }
-          });
-
-          const memberResults = await Promise.all(memberPromises);
-          memberResults.forEach(member => {
-            Object.assign(allMembers, member);
-          });
-        }
-
-        // Load guests data (registered guests)
-        const guestIds = Object.keys(futData.guests || {});
-        if (guestIds.length > 0) {
-          guestIds.forEach(guestId => {
-            allMembers[guestId] = futData.guests[guestId];
-          });
-        }
-
-        setMembers(allMembers);
+        // Members will be loaded separately by the members listener
 
         setLoading(false);
       } catch (error) {
@@ -221,6 +184,28 @@ export function useFutState() {
 
     return unsubscribe;
   }, [id, user, router]);
+
+  // Carregar dados dos membros separadamente
+  useEffect(() => {
+    if (!id || !user) return;
+
+    const membersRef = ref(database, `futs/${id}/members`);
+    const unsubscribeMembers = onValue(membersRef, (snapshot) => {
+      try {
+        const membersData = snapshot.val() || {};
+        console.log('Members listener triggered:', membersData);
+        
+        // For the members tab, we only want actual members, not guests
+        console.log('Setting members from members listener (members only):', membersData);
+        setMembers(membersData);
+      } catch (error) {
+        console.error('Error loading members:', error);
+        setMembers({});
+      }
+    });
+
+    return unsubscribeMembers;
+  }, [id, user]);
 
   // Carregar anúncios
   const loadAnnouncements = async () => {

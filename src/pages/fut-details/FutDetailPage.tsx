@@ -34,7 +34,14 @@ return (
     return null;
   }
 
-  const memberCount = Object.keys(futState.fut.members || {}).length;
+  const memberCount = Object.entries(futState.members || {})
+    .filter(([memberId, memberData]) => {
+      // Exclude only avulso guests, but include cadastrado guests who became members
+      if (memberData.isGuest && memberData.guestType === 'avulso') {
+        return false; // Exclude avulso guests
+      }
+      return true; // Include everyone else (members and cadastrado guests)
+    }).length;
   const isAdmin = futState.isAdmin;
 
 return (
@@ -783,7 +790,28 @@ return (
 
             <div className="space-y-3">
               {Object.entries(futState.members)
-                .filter(([memberId, memberData]) => !memberData.isGuest) // Exclude guests
+                .filter(([memberId, memberData]) => {
+                  // Exclude only avulso guests, but include cadastrado guests who became members
+                  if (memberData.isGuest && memberData.guestType === 'avulso') {
+                    return false; // Exclude avulso guests
+                  }
+                  return true; // Include everyone else (members and cadastrado guests)
+                })
+                .sort(([memberIdA, memberDataA], [memberIdB, memberDataB]) => {
+                  // Admin criador (adminId) sempre primeiro
+                  if (memberIdA === futState.fut?.adminId) return -1;
+                  if (memberIdB === futState.fut?.adminId) return 1;
+                  
+                  // Outros admins em seguida
+                  const isAdminA = futState.fut?.admins?.[memberIdA];
+                  const isAdminB = futState.fut?.admins?.[memberIdB];
+                  
+                  if (isAdminA && !isAdminB) return -1;
+                  if (!isAdminA && isAdminB) return 1;
+                  
+                  // Resto por ordem alfabética
+                  return memberDataA.name?.localeCompare(memberDataB.name || '') || 0;
+                })
                 .map(([memberId, memberData]) => (
                   <div
                     key={memberId}
@@ -2045,8 +2073,8 @@ return (
               {/* Search Results */}
               {futState.memberSearchResults.length > 0 && (
                 <div className="max-h-40 overflow-y-auto space-y-2">
-                  {futState.memberSearchResults.map((user) => (
-                    <div key={user.uid} className="flex items-center justify-between bg-primary p-2 rounded">
+                  {futState.memberSearchResults.map((user, index) => (
+                    <div key={user.id || `user-${index}`} className="flex items-center justify-between bg-primary p-2 rounded">
                       <div>
                         <div className="text-white text-sm font-medium">{user.name}</div>
                         <div className="text-gray-400 text-xs">{user.email}</div>
