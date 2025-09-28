@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { ArrowLeft, Settings, Users, Calendar, MapPin, Crown, X, ChevronLeft, ChevronRight, Copy, Edit, Save } from 'lucide-react';
 import Image from 'next/image';
@@ -10,7 +10,7 @@ import Tabs from './components/Tabs';
 
 export default function FutDetailPage() {
 const router = useRouter();
-const { id } = router.query;
+const { id, tab } = router.query;
   
   // Hook de estado
   const futState = useFutState();
@@ -20,6 +20,13 @@ const { id } = router.query;
   
   // Get user from auth context
   const { user } = useAuth();
+
+  // Navegar para aba específica se especificada na URL
+  useEffect(() => {
+    if (tab && typeof tab === 'string') {
+      futState.setActiveTab(tab as any);
+    }
+  }, [tab, futState]);
 
   // Loading state
   if (futState.loading) {
@@ -1838,6 +1845,47 @@ return (
                           </button>
                         </div>
                       )}
+                    </div>
+                    <div 
+                      onClick={() => {
+                        futState.setSelectedAnnouncement(announcement);
+                        futState.setShowAnnouncementViewModal(true);
+                      }}
+                    >
+                      <p className="text-gray-300 text-sm mb-3 line-clamp-3">
+                        {announcement.message.length > 150 
+                          ? `${announcement.message.substring(0, 150)}...` 
+                          : announcement.message
+                        }
+                      </p>
+                      <div className="text-xs text-gray-500">
+                        Por {announcement.authorName} • {new Date(announcement.createdAt).toLocaleDateString('pt-BR')}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Announcements Tab - Player */}
+        {futState.activeTab === 'avisos' && !isAdmin && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-white text-lg font-semibold">Avisos</h3>
+            </div>
+            
+            <div className="space-y-3">
+              {futState.announcements.length === 0 ? (
+                <div className="bg-primary-lighter rounded-lg p-6 text-center">
+                  <p className="text-gray-400">Nenhum aviso ainda.</p>
+                </div>
+              ) : (
+                futState.announcements.map((announcement) => (
+                  <div key={announcement.id} className="bg-primary-lighter rounded-lg p-4 cursor-pointer hover:bg-primary-darker transition-colors">
+                    <div className="flex items-start justify-between mb-2">
+                      <h4 className="text-white font-semibold text-base">{announcement.title}</h4>
                     </div>
                     <div 
                       onClick={() => {

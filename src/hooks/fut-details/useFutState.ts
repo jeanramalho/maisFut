@@ -245,16 +245,16 @@ export function useFutState() {
     return unsubscribeConfirmedMembers;
   }, [id, user]);
 
-  // Carregar avisos quando a aba for ativada
+  // Carregar avisos quando a aba for ativada (para admins e jogadores)
   useEffect(() => {
-    if (activeTab === 'avisos' && fut && isAdmin) {
+    if (activeTab === 'avisos' && fut) {
       loadAnnouncements();
     }
-  }, [activeTab, fut, isAdmin]);
+  }, [activeTab, fut]);
 
-  // Carregar anúncios
+  // Carregar anúncios (para admins e jogadores)
   const loadAnnouncements = async () => {
-    if (!fut || !isAdmin) return;
+    if (!fut) return;
 
     try {
       const announcementsRef = ref(database, `futs/${fut.id}/announcements`);

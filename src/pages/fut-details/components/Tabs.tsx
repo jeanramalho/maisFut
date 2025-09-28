@@ -22,7 +22,7 @@ export default function Tabs({ activeTab, setActiveTab, isAdmin, votingOpen, fut
       }
       return adminTabs;
     } else {
-      const playerTabs = ['fut', 'info', 'members', 'ranking'] as TabType[];
+      const playerTabs = ['fut', 'info', 'members', 'ranking', 'avisos'] as TabType[];
       
       // Show times tab if teams exist, fut is started AND user is confirmed
       if (futStarted && teams && Object.keys(teams).length > 0 && userUid && confirmedMembers.includes(userUid)) {

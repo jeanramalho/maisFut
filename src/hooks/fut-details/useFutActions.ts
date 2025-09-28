@@ -543,6 +543,36 @@ export function useFutActions(
 
 
 
+  // Função para enviar notificações para todos os membros
+  const sendNotificationToMembers = useCallback(async (announcement: any) => {
+    if (!fut || !fut.members) return;
+
+    try {
+      const memberIds = Object.keys(fut.members);
+      const notificationPromises = memberIds.map(async (memberId) => {
+        if (memberId === user?.uid) return; // Não enviar notificação para o próprio admin
+        
+        const notification = {
+          futId: fut.id,
+          futName: fut.name,
+          title: announcement.title,
+          message: announcement.message,
+          authorName: announcement.authorName,
+          createdAt: Date.now(),
+          read: false
+        };
+
+        const notificationRef = ref(database, `users/${memberId}/notifications`);
+        const newNotificationRef = push(notificationRef);
+        await set(newNotificationRef, notification);
+      });
+
+      await Promise.all(notificationPromises);
+    } catch (error) {
+      console.error('Error sending notifications:', error);
+    }
+  }, [fut, user]);
+
   // Função para salvar anúncio
   const handleSaveAnnouncement = useCallback(async () => {
     if (!fut || !isAdmin || !user) return;
@@ -571,6 +601,9 @@ export function useFutActions(
         
         const newAnnouncementRef = push(announcementsRef);
         await set(newAnnouncementRef, newAnnouncement);
+
+        // Enviar notificações para todos os membros
+        await sendNotificationToMembers(newAnnouncement);
       }
       
       // Reset form
@@ -587,7 +620,7 @@ export function useFutActions(
       console.error('Error saving announcement:', error);
       alert('Erro ao salvar aviso');
     }
-  }, [fut, isAdmin, user, futState]);
+  }, [fut, isAdmin, user, futState, sendNotificationToMembers]);
 
   // Função para deletar anúncio
   const handleDeleteAnnouncement = useCallback(async (announcementId: string) => {

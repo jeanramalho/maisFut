@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Bell, Settings, LogOut } from 'lucide-react';
+import { Settings, LogOut } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
+import NotificationDropdown from './NotificationDropdown';
 
 export default function Header() {
   const { user, userData, logout } = useAuth();
@@ -96,10 +97,7 @@ export default function Header() {
         {/* Right Side Actions */}
         <div className="flex items-center space-x-4">
           {/* Notifications */}
-          <button className="text-gray-400 hover:text-secondary transition-colors relative">
-            <Bell size={24} />
-            <div className="absolute -top-1 -right-1 w-3 h-3 bg-secondary rounded-full"></div>
-          </button>
+          <NotificationDropdown />
 
           {/* Settings */}
           <button 
