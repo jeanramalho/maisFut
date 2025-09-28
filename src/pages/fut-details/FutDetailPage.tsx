@@ -681,7 +681,18 @@ return (
                           </p>
                           
                           {/* Check if slots are full */}
-                          {futState.confirmedMembers && futState.confirmedMembers.length >= futState.releasedVagas ? (
+                          {(() => {
+                            const confirmedCount = futState.confirmedMembers?.length || 0;
+                            const releasedVagas = futState.releasedVagas || 0;
+                            const isFull = confirmedCount >= releasedVagas;
+                            console.log('Player view - slots check:', {
+                              confirmedMembers: futState.confirmedMembers,
+                              confirmedCount,
+                              releasedVagas,
+                              isFull
+                            });
+                            return isFull;
+                          })() ? (
                             <div className="text-center py-4">
                               <p className="text-red-400 text-sm mb-2">
                                 ❌ Não há mais vagas disponíveis
@@ -717,7 +728,7 @@ return (
                             </div>
                           )}
                           
-                          {!futState.confirmedMembers.includes(user?.uid || '') && futState.confirmedMembers.length < futState.releasedVagas && (
+                          {!futState.confirmedMembers.includes(user?.uid || '') && (futState.confirmedMembers?.length || 0) < (futState.releasedVagas || 0) && (
                             <p className="text-gray-500 text-xs mt-2">
                               Até o próximo fut! 👋
                             </p>
@@ -732,20 +743,20 @@ return (
                 {futState.listReleased && (
                   <div className="bg-primary-lighter rounded-lg p-4">
                     <h3 className="text-white text-lg font-semibold mb-3">
-                      Lista de Confirmados - {futActions.getNextFutDate()} ({futState.confirmedMembers.length}/{futState.releasedVagas})
+                      Lista de Confirmados - {futActions.getNextFutDate()} ({futState.confirmedMembers?.length || 0}/{futState.releasedVagas || 0})
                     </h3>
                     
                     {/* Progress Bar */}
                     <div className="mb-4">
                       <div className="flex justify-between text-xs text-gray-400 mb-1">
                         <span>Confirmados</span>
-                        <span>{futState.confirmedMembers.length}/{futState.releasedVagas}</span>
+                        <span>{futState.confirmedMembers?.length || 0}/{futState.releasedVagas || 0}</span>
                       </div>
                       <div className="w-full bg-gray-700 rounded-full h-2">
                         <div 
                           className="bg-secondary h-2 rounded-full transition-all duration-300"
                           style={{ 
-                            width: `${Math.min((futState.confirmedMembers.length / futState.releasedVagas) * 100, 100)}%` 
+                            width: `${Math.min(((futState.confirmedMembers?.length || 0) / (futState.releasedVagas || 1)) * 100, 100)}%` 
                           }}
                         ></div>
                       </div>
@@ -753,7 +764,7 @@ return (
                     
                     {/* Confirmed Members List */}
                     <div className="space-y-2">
-                      {futState.confirmedMembers.length === 0 ? (
+                      {(futState.confirmedMembers?.length || 0) === 0 ? (
                         <p className="text-gray-400 text-sm text-center py-4">
                           Nenhum jogador confirmado ainda
                         </p>
@@ -813,7 +824,7 @@ return (
                     </div>
                     
                     <div className="text-gray-400 text-sm">
-                      Confirmados: {futState.confirmedMembers.length}
+                      Confirmados: {futState.confirmedMembers?.length || 0}
                     </div>
                     
                     <div className="text-gray-400 text-sm">
@@ -825,20 +836,20 @@ return (
                 {/* Confirmed List Section - Show even after fut started */}
                 <div className="bg-primary-lighter rounded-lg p-4">
                   <h3 className="text-white text-lg font-semibold mb-3">
-                    Lista de Confirmados - {futActions.getNextFutDate()} ({futState.confirmedMembers.length}/{futState.releasedVagas})
+                    Lista de Confirmados - {futActions.getNextFutDate()} ({futState.confirmedMembers?.length || 0}/{futState.releasedVagas || 0})
                   </h3>
                   
                   {/* Progress Bar */}
                   <div className="mb-4">
                     <div className="flex justify-between text-xs text-gray-400 mb-1">
                       <span>Confirmados</span>
-                      <span>{futState.confirmedMembers.length}/{futState.releasedVagas}</span>
+                      <span>{futState.confirmedMembers?.length || 0}/{futState.releasedVagas || 0}</span>
                     </div>
                     <div className="w-full bg-gray-700 rounded-full h-2">
                       <div 
                         className="bg-secondary h-2 rounded-full transition-all duration-300"
                         style={{ 
-                          width: `${Math.min((futState.confirmedMembers.length / futState.releasedVagas) * 100, 100)}%` 
+                          width: `${Math.min(((futState.confirmedMembers?.length || 0) / (futState.releasedVagas || 1)) * 100, 100)}%` 
                         }}
                       ></div>
                     </div>
@@ -846,7 +857,7 @@ return (
                   
                   {/* Confirmed Members List */}
                   <div className="space-y-2">
-                    {futState.confirmedMembers.length === 0 ? (
+                    {(futState.confirmedMembers?.length || 0) === 0 ? (
                       <p className="text-gray-400 text-sm text-center py-4">
                         Nenhum jogador confirmado ainda
                       </p>

@@ -112,8 +112,6 @@ export function useFutState() {
     const futRef = ref(database, `futs/${id}`);
     const unsubscribe = onValue(futRef, async (snapshot) => {
       try {
-        console.log('Firebase listener triggered - updating fut data');
-        console.log('Snapshot data:', snapshot.val());
         const futData = snapshot.val();
         
         if (!futData) {
@@ -136,10 +134,7 @@ export function useFutState() {
       if (futData.releasedVagas !== undefined) {
         setReleasedVagas(futData.releasedVagas);
       }
-      if (futData.confirmedMembers) {
-        console.log('Updating confirmedMembers:', futData.confirmedMembers);
-        setConfirmedMembers(futData.confirmedMembers);
-      }
+      // confirmedMembers is now handled by a separate listener
       if (futData.futStarted !== undefined) {
         setFutStarted(futData.futStarted);
       }
@@ -162,10 +157,6 @@ export function useFutState() {
         setVotingEnded(futData.votingEnded);
       }
       
-      // Redirect to fut tab when voting is closed (for non-admin users)
-      if (futData.votingOpen === false && futData.votingEnded === true && !isAdmin && activeTab === 'voting') {
-        setActiveTab('fut');
-      }
       if (futData.playerVotes) {
         setPlayerVotes(futData.playerVotes);
       }
@@ -192,7 +183,7 @@ export function useFutState() {
     });
 
     return unsubscribe;
-  }, [id, user, router]);
+  }, [id, user?.uid, router]);
 
   // Carregar dados dos membros separadamente
   useEffect(() => {
@@ -233,6 +224,25 @@ export function useFutState() {
     });
 
     return unsubscribeGuests;
+  }, [id, user]);
+
+  // Listener específico para confirmedMembers para garantir atualizações em tempo real
+  useEffect(() => {
+    if (!id || !user) return;
+
+    const confirmedMembersRef = ref(database, `futs/${id}/confirmedMembers`);
+    const unsubscribeConfirmedMembers = onValue(confirmedMembersRef, (snapshot) => {
+      try {
+        const confirmedMembersData = snapshot.val();
+        console.log('ConfirmedMembers listener triggered:', confirmedMembersData);
+        setConfirmedMembers(confirmedMembersData || []);
+      } catch (error) {
+        console.error('Error loading confirmed members:', error);
+        setConfirmedMembers([]);
+      }
+    });
+
+    return unsubscribeConfirmedMembers;
   }, [id, user]);
 
   // Carregar avisos quando a aba for ativada
@@ -278,6 +288,13 @@ export function useFutState() {
     }
   };
 
+  // Handle voting tab redirect when voting is closed
+  useEffect(() => {
+    if (votingOpen === false && votingEnded === true && !isAdmin && activeTab === 'voting') {
+      setActiveTab('fut');
+    }
+  }, [votingOpen, votingEnded, isAdmin, activeTab]);
+
   // Load additional data when fut is loaded
   useEffect(() => {
     if (fut && user) {
@@ -285,6 +302,7 @@ export function useFutState() {
       loadFutHistory();
     }
   }, [fut, user]);
+
 
 
   return {

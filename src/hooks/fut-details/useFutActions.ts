@@ -126,10 +126,10 @@ export function useFutActions(
         newConfirmed = currentConfirmed.filter((id: string) => id !== user.uid);
       }
 
+      // Update Firebase only - listener will handle state update
       await update(futRef, {
         confirmedMembers: newConfirmed,
       });
-      futState.setConfirmedMembers(newConfirmed);
     } catch (error) {
       console.error('Error confirming presence:', error);
       alert('Erro ao confirmar presença');
@@ -1622,10 +1622,7 @@ export function useFutActions(
       // Remove from confirmed members
       const newConfirmedMembers = futState.confirmedMembers.filter((id: string) => id !== memberId);
       
-      // Update local state first
-      futState.setConfirmedMembers(newConfirmedMembers);
-      
-      // Save to Firebase
+      // Save to Firebase only - listener will handle state update
       await set(ref(database, `futs/${fut.id}/confirmedMembers`), newConfirmedMembers);
       
       alert(`${memberName} foi removido da lista de confirmados!`);
