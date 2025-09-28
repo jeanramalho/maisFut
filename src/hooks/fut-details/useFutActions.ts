@@ -27,17 +27,79 @@ export function useFutActions(
     return 'Recorrência não definida';
   }, [fut]);
 
+  // Função para calcular a próxima data do fut
+  const getNextFutDate = useCallback(() => {
+    if (!fut) return '';
+    if (fut.type === 'avulso') return 'Data a definir';
+
+    if (!fut.recurrence) return 'Data a definir';
+
+    const now = new Date();
+    const { kind, day } = fut.recurrence;
+
+    if (kind === 'weekly') {
+      const daysOfWeek = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+      const targetDay = day; // 0 = Domingo, 1 = Segunda, etc.
+      const currentDay = now.getDay();
+      
+      let daysUntilTarget = targetDay - currentDay;
+      if (daysUntilTarget <= 0) {
+        daysUntilTarget += 7; // Próxima semana
+      }
+      
+      const nextDate = new Date(now);
+      nextDate.setDate(now.getDate() + daysUntilTarget);
+      
+      // Check if it's today
+      if (daysUntilTarget === 7) {
+        return 'É hoje';
+      }
+      
+      return nextDate.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    } else if (kind === 'monthly') {
+      const currentDay = now.getDate();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+      
+      let nextDate = new Date(currentYear, currentMonth, day);
+      
+      // Check if it's today
+      if (day === currentDay) {
+        return 'É hoje';
+      }
+      
+      // Se o dia já passou este mês, ir para o próximo mês
+      if (day < currentDay) {
+        nextDate = new Date(currentYear, currentMonth + 1, day);
+      }
+      
+      return nextDate.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    }
+
+    return 'Data a definir';
+  }, [fut]);
+
   // Função para liberar lista
   const handleReleaseList = useCallback(async () => {
     if (!fut || !isAdmin) return;
 
     try {
       const futRef = ref(database, `futs/${fut.id}`);
+      const vagasToRelease = futState.releasedVagas || fut.maxVagas;
       await update(futRef, {
         listReleased: true,
-        releasedVagas: futState.releasedVagas || fut.maxVagas,
+        releasedVagas: vagasToRelease,
       });
       futState.setListReleased(true);
+      futState.setReleasedVagas(vagasToRelease);
     } catch (error) {
       console.error('Error releasing list:', error);
       alert('Erro ao liberar lista');
@@ -590,24 +652,28 @@ export function useFutActions(
   const handleShareList = useCallback(() => {
     const confirmedNames = futState.confirmedMembers.map((memberId: string, index: number) => {
       const member = futState.members[memberId];
-      return `${index + 1} - ${member?.name || 'VAGA'}`;
+      const guest = futState.guests?.[memberId];
+      const memberData = guest || member;
+      return `${index + 1} - ${memberData?.name || 'VAGA'}`;
     }).join('\n');
 
-    const message = `Lista de confirmados - ${fut?.name} - ${fut?.time || '19:00'} - ${getRecurrenceText()} - 23/09/2025\n\n${confirmedNames}`;
+    const message = `Lista de confirmados - ${fut?.name} - ${fut?.time || '19:00'} - ${getRecurrenceText()} - ${getNextFutDate()}\n\n${confirmedNames}`;
     
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
-  }, [fut, futState.confirmedMembers, futState.members]);
+  }, [fut, futState.confirmedMembers, futState.members, futState.guests, getRecurrenceText, getNextFutDate]);
 
   // Função para compartilhar times
   const handleShareTeams = useCallback(() => {
-    let message = `${fut?.name} - ${getRecurrenceText()} às ${fut?.time || '19:00'} - 23/09/2025\n\nTIMES:\n\n`;
+    let message = `${fut?.name} - ${getRecurrenceText()} às ${fut?.time || '19:00'} - ${getNextFutDate()}\n\nTIMES:\n\n`;
     
     Object.entries(futState.teams).forEach(([teamName, players]) => {
       message += `${teamName}\n`;
       (players as string[]).forEach((playerId: string, index: number) => {
         const player = futState.members[playerId];
-        message += `${index + 1}- ${player?.name || 'VAGA'}\n`;
+        const guest = futState.guests?.[playerId];
+        const memberData = guest || player;
+        message += `${index + 1}- ${memberData?.name || 'VAGA'}\n`;
       });
       
       // Add VAGA if team is not full
@@ -621,7 +687,7 @@ export function useFutActions(
     
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
-  }, [fut, futState.teams, futState.members, futState.playersPerTeam]);
+  }, [fut, futState.teams, futState.members, futState.guests, futState.playersPerTeam, getRecurrenceText, getNextFutDate]);
 
   // Função para sortear times
   const handleTeamDraw = useCallback(async () => {
@@ -1700,6 +1766,7 @@ export function useFutActions(
 
   return {
     getRecurrenceText,
+    getNextFutDate,
     handleReleaseList,
     handleConfirmPresence,
     handleStartFut,

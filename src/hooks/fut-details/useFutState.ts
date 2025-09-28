@@ -13,6 +13,7 @@ export function useFutState() {
   // Estados principais
   const [fut, setFut] = useState<Fut | null>(null);
   const [members, setMembers] = useState<Record<string, UserData>>({});
+  const [guests, setGuests] = useState<Record<string, UserData>>({});
   const [activeTab, setActiveTab] = useState<TabType>('fut');
   const [loading, setLoading] = useState(true);
 
@@ -136,6 +137,7 @@ export function useFutState() {
         setReleasedVagas(futData.releasedVagas);
       }
       if (futData.confirmedMembers) {
+        console.log('Updating confirmedMembers:', futData.confirmedMembers);
         setConfirmedMembers(futData.confirmedMembers);
       }
       if (futData.futStarted !== undefined) {
@@ -158,6 +160,11 @@ export function useFutState() {
       }
       if (futData.votingEnded !== undefined) {
         setVotingEnded(futData.votingEnded);
+      }
+      
+      // Redirect to fut tab when voting is closed (for non-admin users)
+      if (futData.votingOpen === false && futData.votingEnded === true && !isAdmin && activeTab === 'voting') {
+        setActiveTab('fut');
       }
       if (futData.playerVotes) {
         setPlayerVotes(futData.playerVotes);
@@ -207,6 +214,25 @@ export function useFutState() {
     });
 
     return unsubscribeMembers;
+  }, [id, user]);
+
+  // Carregar dados dos convidados separadamente
+  useEffect(() => {
+    if (!id || !user) return;
+
+    const guestsRef = ref(database, `futs/${id}/guests`);
+    const unsubscribeGuests = onValue(guestsRef, (snapshot) => {
+      try {
+        const guestsData = snapshot.val() || {};
+        console.log('Guests listener triggered:', guestsData);
+        setGuests(guestsData);
+      } catch (error) {
+        console.error('Error loading guests:', error);
+        setGuests({});
+      }
+    });
+
+    return unsubscribeGuests;
   }, [id, user]);
 
   // Carregar avisos quando a aba for ativada
@@ -267,6 +293,8 @@ export function useFutState() {
     setFut,
     members,
     setMembers,
+    guests,
+    setGuests,
     activeTab,
     setActiveTab,
     loading,

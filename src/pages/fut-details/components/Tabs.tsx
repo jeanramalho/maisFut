@@ -7,9 +7,12 @@ interface TabsProps {
   isAdmin: boolean;
   votingOpen: boolean;
   futStarted: boolean;
+  confirmedMembers: string[];
+  userUid?: string;
+  teams: Record<string, string[]>;
 }
 
-export default function Tabs({ activeTab, setActiveTab, isAdmin, votingOpen, futStarted }: TabsProps) {
+export default function Tabs({ activeTab, setActiveTab, isAdmin, votingOpen, futStarted, confirmedMembers, userUid, teams }: TabsProps) {
   const getTabs = () => {
     if (isAdmin) {
       const adminTabs = ['fut', 'info', 'members', 'ranking', 'avisos', 'configuracoes'] as TabType[];
@@ -20,7 +23,14 @@ export default function Tabs({ activeTab, setActiveTab, isAdmin, votingOpen, fut
       return adminTabs;
     } else {
       const playerTabs = ['fut', 'info', 'members', 'ranking'] as TabType[];
-      if (votingOpen) {
+      
+      // Show times tab if teams exist and fut is started
+      if (futStarted && teams && Object.keys(teams).length > 0) {
+        playerTabs.splice(1, 0, 'times');
+      }
+      
+      // Only show voting tab if user is confirmed and voting is open
+      if (votingOpen && userUid && confirmedMembers.includes(userUid)) {
         // Insert voting tab right after fut tab
         playerTabs.splice(1, 0, 'voting');
       }

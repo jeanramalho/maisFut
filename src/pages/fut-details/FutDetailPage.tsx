@@ -181,6 +181,9 @@ return (
         isAdmin={isAdmin}
         votingOpen={futState.votingOpen}
         futStarted={futState.futStarted}
+        confirmedMembers={futState.confirmedMembers}
+        userUid={user?.uid}
+        teams={futState.teams}
       />
 
       {/* Tab Content */}
@@ -192,7 +195,7 @@ return (
               <>
                 {/* Next Game Section */}
                 <div className="bg-primary-lighter rounded-lg p-3">
-                  <h3 className="text-white text-base font-semibold mb-3">Próximo Fut 23/09/2025</h3>
+                  <h3 className="text-white text-base font-semibold mb-3">Próximo Fut - {futActions.getNextFutDate()}</h3>
                   
                   <div className="space-y-3">
                     <div className="flex space-x-2">
@@ -200,10 +203,10 @@ return (
                         type="number"
                         min="1"
                         max={futState.fut?.maxVagas}
-                        value={futState.releasedVagas}
-                        onChange={(e) => futState.setReleasedVagas(parseInt(e.target.value) || futState.fut?.maxVagas || 0)}
+                        value={futState.releasedVagas || ''}
+                        onChange={(e) => futState.setReleasedVagas(parseInt(e.target.value) || 0)}
                         className="flex-1 px-2 py-1 bg-primary border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-secondary text-sm"
-                        placeholder="Vagas"
+                        placeholder={`Vagas (padrão: ${futState.fut?.maxVagas || 0})`}
                       />
                       <button 
                         onClick={futActions.handleReleaseList}
@@ -251,7 +254,7 @@ return (
             ) : (
               /* Read-only view after fut started */
               <div className="bg-primary-lighter rounded-lg p-3">
-                <h3 className="text-white text-base font-semibold mb-3">Fut em Andamento - 23/09/2025</h3>
+                <h3 className="text-white text-base font-semibold mb-3">Fut em Andamento - {futActions.getNextFutDate()}</h3>
                 
                 <div className="space-y-3">
                   <div className="text-gray-400 text-sm">
@@ -268,7 +271,7 @@ return (
             {/* Confirmed List Section - Only show after list is released */}
             {futState.listReleased && (
               <div className="bg-primary-lighter rounded-lg p-3">
-                <h3 className="text-white text-base font-semibold mb-3">Lista de Confirmados para o Fut 23/09/2025</h3>
+                <h3 className="text-white text-base font-semibold mb-3">Lista de Confirmados para o Fut - {futActions.getNextFutDate()}</h3>
                 
                 {/* Progress Bar */}
                 <div className="mb-3">
@@ -655,7 +658,7 @@ return (
                 {/* Next Game Section */}
                 <div className="bg-primary-lighter rounded-lg p-4">
                   <h3 className="text-white text-lg font-semibold mb-3">
-                    Próximo Fut - {new Date().toLocaleDateString('pt-BR')}
+                    Próximo Fut - {futActions.getNextFutDate()}
                   </h3>
                   
                   <div className="space-y-4">
@@ -677,32 +680,44 @@ return (
                             A lista foi liberada! Confirme sua presença:
                           </p>
                           
-                          <div className="flex space-x-3">
-                            <button 
-                              onClick={() => futActions.handleConfirmPresence(true)}
-                              disabled={futState.confirmedMembers.includes(user?.uid || '')}
-                              className={`flex-1 py-3 px-4 rounded-lg text-sm font-medium transition-colors ${
-                                futState.confirmedMembers.includes(user?.uid || '') 
-                                  ? 'bg-green-700 text-white cursor-not-allowed' 
-                                  : 'bg-green-600 text-white hover:bg-green-700'
-                              }`}
-                            >
-                              Tô Dentro
-                            </button>
-                            <button 
-                              onClick={() => futActions.handleConfirmPresence(false)}
-                              disabled={!futState.confirmedMembers.includes(user?.uid || '')}
-                              className={`flex-1 py-3 px-4 rounded-lg text-sm font-medium transition-colors ${
-                                !futState.confirmedMembers.includes(user?.uid || '') 
-                                  ? 'bg-red-700 text-white cursor-not-allowed' 
-                                  : 'bg-red-600 text-white hover:bg-red-700'
-                              }`}
-                            >
-                              Tô Fora
-                            </button>
-                          </div>
+                          {/* Check if slots are full */}
+                          {futState.confirmedMembers && futState.confirmedMembers.length >= futState.releasedVagas ? (
+                            <div className="text-center py-4">
+                              <p className="text-red-400 text-sm mb-2">
+                                ❌ Não há mais vagas disponíveis
+                              </p>
+                              <p className="text-gray-500 text-xs">
+                                A lista está completa. Os botões aparecerão novamente se alguém desistir.
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="flex space-x-3">
+                              <button 
+                                onClick={() => futActions.handleConfirmPresence(true)}
+                                disabled={futState.confirmedMembers.includes(user?.uid || '')}
+                                className={`flex-1 py-3 px-4 rounded-lg text-sm font-medium transition-colors ${
+                                  futState.confirmedMembers.includes(user?.uid || '') 
+                                    ? 'bg-green-700 text-white cursor-not-allowed' 
+                                    : 'bg-green-600 text-white hover:bg-green-700'
+                                }`}
+                              >
+                                Tô Dentro
+                              </button>
+                              <button 
+                                onClick={() => futActions.handleConfirmPresence(false)}
+                                disabled={!futState.confirmedMembers.includes(user?.uid || '')}
+                                className={`flex-1 py-3 px-4 rounded-lg text-sm font-medium transition-colors ${
+                                  !futState.confirmedMembers.includes(user?.uid || '') 
+                                    ? 'bg-red-700 text-white cursor-not-allowed' 
+                                    : 'bg-red-600 text-white hover:bg-red-700'
+                                }`}
+                              >
+                                Tô Fora
+                              </button>
+                            </div>
+                          )}
                           
-                          {!futState.confirmedMembers.includes(user?.uid || '') && (
+                          {!futState.confirmedMembers.includes(user?.uid || '') && futState.confirmedMembers.length < futState.releasedVagas && (
                             <p className="text-gray-500 text-xs mt-2">
                               Até o próximo fut! 👋
                             </p>
@@ -717,7 +732,7 @@ return (
                 {futState.listReleased && (
                   <div className="bg-primary-lighter rounded-lg p-4">
                     <h3 className="text-white text-lg font-semibold mb-3">
-                      Lista de Confirmados ({futState.confirmedMembers.length}/{futState.releasedVagas})
+                      Lista de Confirmados - {futActions.getNextFutDate()} ({futState.confirmedMembers.length}/{futState.releasedVagas})
                     </h3>
                     
                     {/* Progress Bar */}
@@ -744,7 +759,8 @@ return (
                         </p>
                       ) : (
                         futState.confirmedMembers.map((memberId: string) => {
-                          const memberData = futState.members[memberId];
+                          // Check if it's a guest first, then fallback to members
+                          const memberData = futState.guests?.[memberId] || futState.members[memberId];
                           return (
                             <div key={memberId} className="flex items-center space-x-3 p-2 bg-primary rounded-lg">
                               <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center flex-shrink-0">
@@ -766,6 +782,9 @@ return (
                                 <p className="text-white text-sm font-medium truncate">
                                   {memberData?.name || 'Jogador'}
                                 </p>
+                                {memberData?.isGuest && (
+                                  <p className="text-gray-400 text-xs">(Convidado)</p>
+                                )}
                               </div>
                               {memberId === user?.uid && (
                                 <div className="text-xs text-secondary font-medium">
@@ -782,22 +801,93 @@ return (
               </>
             ) : (
               /* Fut started - show read-only info */
-              <div className="bg-primary-lighter rounded-lg p-4">
-                <h3 className="text-white text-lg font-semibold mb-3">
-                  Fut em Andamento - {new Date().toLocaleDateString('pt-BR')}
-                </h3>
-                
-                <div className="space-y-3">
-                  <div className="text-gray-400 text-sm">
-                    Vagas: {futState.releasedVagas}
+              <div className="space-y-4">
+                <div className="bg-primary-lighter rounded-lg p-4">
+                  <h3 className="text-white text-lg font-semibold mb-3">
+                    Fut em Andamento - {futActions.getNextFutDate()}
+                  </h3>
+                  
+                  <div className="space-y-3">
+                    <div className="text-gray-400 text-sm">
+                      Vagas: {futState.releasedVagas}
+                    </div>
+                    
+                    <div className="text-gray-400 text-sm">
+                      Confirmados: {futState.confirmedMembers.length}
+                    </div>
+                    
+                    <div className="text-gray-400 text-sm">
+                      Status: {futState.futEnded ? 'Finalizado' : 'Em andamento'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Confirmed List Section - Show even after fut started */}
+                <div className="bg-primary-lighter rounded-lg p-4">
+                  <h3 className="text-white text-lg font-semibold mb-3">
+                    Lista de Confirmados - {futActions.getNextFutDate()} ({futState.confirmedMembers.length}/{futState.releasedVagas})
+                  </h3>
+                  
+                  {/* Progress Bar */}
+                  <div className="mb-4">
+                    <div className="flex justify-between text-xs text-gray-400 mb-1">
+                      <span>Confirmados</span>
+                      <span>{futState.confirmedMembers.length}/{futState.releasedVagas}</span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div 
+                        className="bg-secondary h-2 rounded-full transition-all duration-300"
+                        style={{ 
+                          width: `${Math.min((futState.confirmedMembers.length / futState.releasedVagas) * 100, 100)}%` 
+                        }}
+                      ></div>
+                    </div>
                   </div>
                   
-                  <div className="text-gray-400 text-sm">
-                    Confirmados: {futState.confirmedMembers.length}
-                  </div>
-                  
-                  <div className="text-gray-400 text-sm">
-                    Status: {futState.futEnded ? 'Finalizado' : 'Em andamento'}
+                  {/* Confirmed Members List */}
+                  <div className="space-y-2">
+                    {futState.confirmedMembers.length === 0 ? (
+                      <p className="text-gray-400 text-sm text-center py-4">
+                        Nenhum jogador confirmado ainda
+                      </p>
+                    ) : (
+                      futState.confirmedMembers.map((memberId: string) => {
+                        // Check if it's a guest first, then fallback to members
+                        const memberData = futState.guests?.[memberId] || futState.members[memberId];
+                        return (
+                          <div key={memberId} className="flex items-center space-x-3 p-2 bg-primary rounded-lg">
+                            <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center flex-shrink-0">
+                              {memberData?.photoURL ? (
+                                <Image
+                                  src={memberData.photoURL}
+                                  alt={memberData.name}
+                                  width={32}
+                                  height={32}
+                                  className="w-full h-full object-cover rounded-full"
+                                />
+                              ) : (
+                                <span className="text-primary font-bold text-sm">
+                                  {memberData?.name?.charAt(0).toUpperCase() || '?'}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-white text-sm font-medium truncate">
+                                {memberData?.name || 'Jogador'}
+                              </p>
+                              {memberData?.isGuest && (
+                                <p className="text-gray-400 text-xs">(Convidado)</p>
+                              )}
+                            </div>
+                            {memberId === user?.uid && (
+                              <div className="text-xs text-secondary font-medium">
+                                Você
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
                 </div>
               </div>
@@ -810,64 +900,153 @@ return (
           <div className="space-y-4">
             <div className="bg-primary-lighter rounded-lg p-4">
               <h3 className="text-white text-lg font-semibold mb-4">Votação - Avalie os Jogadores</h3>
-              <div className="space-y-4">
-                {Object.values(futState.teams).flat()
-                  .filter(playerId => {
-                    if (playerId === 'VAGA') return false;
-                    const player = futState.members[playerId];
-                    // Only members, not any type of guest
-                    return !player?.isGuest;
-                  })
-                  .map((playerId) => {
-                    const player = futState.members[playerId];
-                    const currentVote = futState.userVotes[user?.uid || '']?.[playerId] || 0;
-                    
-                    return (
-                      <div key={playerId} className="bg-primary p-3 rounded-lg">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3 flex-1 min-w-0">
-                            {player?.photoURL ? (
-                              <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
-                                <Image
-                                  src={player.photoURL}
-                                  alt={player.name}
-                                  width={32}
-                                  height={32}
-                                  className="w-full h-full object-cover"
-                                />
+              
+              {futState.votingEnded ? (
+                <div className="text-center py-8">
+                  <div className="text-gray-400 text-sm mb-2">
+                    🗳️ Votação encerrada
+                  </div>
+                  <p className="text-gray-500 text-xs">
+                    A votação foi encerrada pelo administrador. Você será redirecionado automaticamente.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {Object.values(futState.teams).flat()
+                    .filter(playerId => {
+                      if (playerId === 'VAGA') return false;
+                      const player = futState.members[playerId];
+                      const guest = futState.guests?.[playerId];
+                      // Only members, not any type of guest (including cadastrado guests)
+                      return !player?.isGuest && !guest?.isGuest;
+                    })
+                    .map((playerId) => {
+                      const player = futState.members[playerId];
+                      const currentVote = futState.userVotes[user?.uid || '']?.[playerId] || 0;
+                      
+                      return (
+                        <div key={playerId} className="bg-primary p-3 rounded-lg">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3 flex-1 min-w-0">
+                              {player?.photoURL ? (
+                                <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                                  <Image
+                                    src={player.photoURL}
+                                    alt={player.name}
+                                    width={32}
+                                    height={32}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center flex-shrink-0">
+                                  <span className="text-primary font-semibold text-xs">
+                                    {player?.name?.charAt(0).toUpperCase() || 'C'}
+                                  </span>
+                                </div>
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <span className="text-white text-sm font-medium truncate block">{player?.name || 'VAGA'}</span>
                               </div>
-                            ) : (
-                              <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center flex-shrink-0">
-                                <span className="text-primary font-semibold text-xs">
-                                  {player?.name?.charAt(0).toUpperCase() || 'C'}
-                                </span>
-                              </div>
-                            )}
-                            <div className="min-w-0 flex-1">
-                              <span className="text-white text-sm font-medium truncate block">{player?.name || 'VAGA'}</span>
+                            </div>
+                            
+                            <div className="flex items-center space-x-0.5 ml-2 flex-shrink-0">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <button
+                                  key={star}
+                                  onClick={() => futActions.handleVote(playerId, star)}
+                                  className={`w-6 h-6 rounded text-sm ${
+                                    star <= currentVote
+                                      ? 'text-yellow-400'
+                                      : 'text-gray-400 hover:text-yellow-300'
+                                  }`}
+                                >
+                                  ★
+                                </button>
+                              ))}
                             </div>
                           </div>
-                          
-                          <div className="flex items-center space-x-0.5 ml-2 flex-shrink-0">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                              <button
-                                key={star}
-                                onClick={() => futActions.handleVote(playerId, star)}
-                                className={`w-6 h-6 rounded text-sm ${
-                                  star <= currentVote
-                                    ? 'text-yellow-400'
-                                    : 'text-gray-400 hover:text-yellow-300'
-                                }`}
-                              >
-                                ★
-                              </button>
-                            ))}
-                          </div>
                         </div>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Times Tab - Player */}
+        {futState.activeTab === 'times' && !isAdmin && futState.futStarted && (
+          <div className="space-y-4">
+            <div className="bg-primary-lighter rounded-lg p-4">
+              <h3 className="text-white text-lg font-semibold mb-4">Times do Fut</h3>
+              
+              {Object.keys(futState.teams).length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="text-gray-400 text-sm mb-2">
+                    ⚽ Times ainda não foram escolhidos
+                  </div>
+                  <p className="text-gray-500 text-xs">
+                    O administrador ainda não definiu os times para este fut
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {Object.entries(futState.teams).map(([teamName, players]) => (
+                    <div key={teamName} className="bg-primary rounded-lg p-4">
+                      <h4 className="text-white text-base font-semibold mb-3 flex items-center">
+                        <div className="w-6 h-6 bg-secondary rounded-full flex items-center justify-center mr-2">
+                          <span className="text-primary font-bold text-xs">
+                            {teamName.charAt(teamName.length - 1)}
+                          </span>
+                        </div>
+                        {teamName}
+                      </h4>
+                      
+                      <div className="space-y-2">
+                        {(players as string[]).map((playerId: string, index: number) => {
+                          const player = futState.members[playerId];
+                          const guest = futState.guests?.[playerId];
+                          const memberData = guest || player;
+                          
+                          return (
+                            <div key={playerId} className="flex items-center space-x-3 p-2 bg-primary-lighter rounded-lg">
+                              <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center flex-shrink-0">
+                                {memberData?.photoURL ? (
+                                  <Image
+                                    src={memberData.photoURL}
+                                    alt={memberData.name}
+                                    width={32}
+                                    height={32}
+                                    className="w-full h-full object-cover rounded-full"
+                                  />
+                                ) : (
+                                  <span className="text-primary font-bold text-xs">
+                                    {memberData?.name?.charAt(0).toUpperCase() || '?'}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-white text-sm font-medium truncate">
+                                  {memberData?.name || 'VAGA'}
+                                </p>
+                                {memberData?.isGuest && (
+                                  <p className="text-gray-400 text-xs">(Convidado)</p>
+                                )}
+                              </div>
+                              {playerId === user?.uid && (
+                                <div className="text-xs text-secondary font-medium">
+                                  Você
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
-                    );
-                  })}
-              </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

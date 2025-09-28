@@ -92,7 +92,10 @@ export default function VotingPanel({ futId, dateId, isAdmin, onClose }: VotingP
 
     try {
       const votingRef = ref(database, `futOccurrences/${futId}/${dateId}/voting`);
-      await update(votingRef, { open: true });
+      await update(votingRef, { 
+        open: true,
+        votes: {} // Clear existing votes when opening voting
+      });
     } catch (error) {
       console.error('Error opening voting:', error);
     }
