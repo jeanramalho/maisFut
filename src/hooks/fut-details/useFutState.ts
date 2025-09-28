@@ -264,6 +264,10 @@ export function useFutState() {
         id,
         ...data,
       }));
+      
+      // Ordenar por data de criação (mais recentes primeiro)
+      announcementsList.sort((a, b) => b.createdAt - a.createdAt);
+      
       setAnnouncements(announcementsList);
     } catch (error) {
       console.error('Error loading announcements:', error);

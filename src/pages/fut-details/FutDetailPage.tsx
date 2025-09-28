@@ -1883,16 +1883,18 @@ return (
                 </div>
               ) : (
                 futState.announcements.map((announcement) => (
-                  <div key={announcement.id} className="bg-primary-lighter rounded-lg p-4 cursor-pointer hover:bg-primary-darker transition-colors">
+                  <div 
+                    key={announcement.id} 
+                    className="bg-primary-lighter rounded-lg p-4 cursor-pointer hover:bg-primary-darker transition-colors"
+                    onClick={() => {
+                      futState.setSelectedAnnouncement(announcement);
+                      futState.setShowAnnouncementViewModal(true);
+                    }}
+                  >
                     <div className="flex items-start justify-between mb-2">
                       <h4 className="text-white font-semibold text-base">{announcement.title}</h4>
                     </div>
-                    <div 
-                      onClick={() => {
-                        futState.setSelectedAnnouncement(announcement);
-                        futState.setShowAnnouncementViewModal(true);
-                      }}
-                    >
+                    <div>
                       <p className="text-gray-300 text-sm mb-3 line-clamp-3">
                         {announcement.message.length > 150 
                           ? `${announcement.message.substring(0, 150)}...` 
