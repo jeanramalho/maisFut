@@ -194,7 +194,6 @@ export function useFutState() {
     const unsubscribeMembers = onValue(membersRef, async (snapshot) => {
       try {
         const membersData = snapshot.val() || {};
-        console.log('Members listener triggered:', membersData);
         
         // Carregar dados completos dos usuários
         const membersWithData: Record<string, UserData> = {};
@@ -219,7 +218,6 @@ export function useFutState() {
           }
         }
         
-        console.log('Setting members with complete data:', membersWithData);
         setMembers(membersWithData);
       } catch (error) {
         console.error('Error loading members:', error);
@@ -238,7 +236,6 @@ export function useFutState() {
     const unsubscribeGuests = onValue(guestsRef, (snapshot) => {
       try {
         const guestsData = snapshot.val() || {};
-        console.log('Guests listener triggered:', guestsData);
         setGuests(guestsData);
       } catch (error) {
         console.error('Error loading guests:', error);
@@ -257,7 +254,6 @@ export function useFutState() {
     const unsubscribeConfirmedMembers = onValue(confirmedMembersRef, (snapshot) => {
       try {
         const confirmedMembersData = snapshot.val();
-        console.log('ConfirmedMembers listener triggered:', confirmedMembersData);
         setConfirmedMembers(confirmedMembersData || []);
       } catch (error) {
         console.error('Error loading confirmed members:', error);

@@ -75,7 +75,6 @@ export default function VotingPanel({ futId, dateId, isAdmin, onClose }: VotingP
             const playerData = playerSnapshot.val();
             
             if (!playerData) {
-              console.warn(`No user data found for player ${playerId}`);
               return {
                 id: playerId,
                 name: 'Jogador',
@@ -99,7 +98,6 @@ export default function VotingPanel({ futId, dateId, isAdmin, onClose }: VotingP
         });
 
         const playersData = await Promise.all(playerPromises);
-        console.log('Present players data:', playersData);
         setPresentPlayers(playersData);
       }
     });

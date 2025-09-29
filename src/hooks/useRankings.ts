@@ -16,16 +16,11 @@ export function useRankings({ futId, isAdmin }: UseRankingsProps) {
   const [availableDates, setAvailableDates] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
-  console.log(`useRankings initialized with futId: ${futId}, isAdmin: ${isAdmin}, period: ${period}, type: ${type}`);
-
   // Real-time listener for available dates
   useEffect(() => {
     if (!futId) {
-      console.log('No futId provided, skipping available dates listener');
       return;
     }
-
-    console.log(`Setting up available dates listener for futId: ${futId}`);
     const rankingsRef = ref(database, `futs/${futId}/rankings`);
     const unsubscribe = onValue(rankingsRef, (snapshot) => {
       try {
@@ -33,10 +28,8 @@ export function useRankings({ futId, isAdmin }: UseRankingsProps) {
           const data = snapshot.val();
           const dates = Object.keys(data).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
           setAvailableDates(dates);
-          console.log(`Available dates updated: ${dates.join(', ')}`);
         } else {
           setAvailableDates([]);
-          console.log('No rankings data found for available dates');
         }
       } catch (error) {
         console.error('Error loading available dates:', error);
@@ -51,14 +44,11 @@ export function useRankings({ futId, isAdmin }: UseRankingsProps) {
   useEffect(() => {
     if (!futId || period !== 'rodada' || selectedDate) return;
 
-    console.log(`Loading latest ranking for futId: ${futId}, period: ${period}, type: ${type}`);
-
     const unsubscribe = onValue(ref(database, `futs/${futId}/rankings`), async (snapshot) => {
       try {
         setLoading(true);
         if (snapshot.exists()) {
           const data = snapshot.val();
-          console.log('Rankings data found:', data);
           
           // Find the latest fut across all dates
           let latestFutRanking: FutRanking | null = null;
@@ -67,14 +57,11 @@ export function useRankings({ futId, isAdmin }: UseRankingsProps) {
           let latestCreatedAt = 0;
           
           Object.entries(data).forEach(([date, dateRankings]: [string, any]) => {
-            console.log(`Processing date: ${date}`);
             Object.entries(dateRankings).forEach(([futKey, futRanking]: [string, any]) => {
               const futNumber = parseInt(futKey.split('-')[1]) || 0;
               const futDate = new Date(date).getTime();
               const latestTime = latestDate ? new Date(latestDate).getTime() : 0;
               const createdAt = futRanking.createdAt || 0;
-              
-              console.log(`  Processing ${futKey}: futNumber=${futNumber}, futDate=${futDate}, latestTime=${latestTime}, createdAt=${createdAt}`);
               
               // If this fut is newer (later date, same date with higher fut number, or same date/fut with later createdAt)
               // For the first fut, latestTime will be 0, so futDate > 0 will be true
@@ -85,7 +72,6 @@ export function useRankings({ futId, isAdmin }: UseRankingsProps) {
                 latestDate = date;
                 latestFutNumber = futNumber;
                 latestCreatedAt = createdAt;
-                console.log(`    -> New latest: ${date}, fut-${futNumber}`);
               }
             });
           });
@@ -93,13 +79,10 @@ export function useRankings({ futId, isAdmin }: UseRankingsProps) {
           if (latestFutRanking) {
             const rankingData = latestFutRanking.rankings[type] || [];
             setRankings(rankingData);
-            console.log(`Loading latest ranking from ${latestDate}, fut-${latestFutNumber}, type: ${type}, data:`, rankingData);
           } else {
-            console.log('No latest fut ranking found');
             setRankings([]);
           }
         } else {
-          console.log('No rankings data found');
           setRankings([]);
         }
       } catch (error) {

@@ -1,3 +1,18 @@
+/**
+ * Página de Detalhes do Fut - +Fut
+ * 
+ * Esta é a página principal onde os usuários visualizam e interagem
+ * com todas as funcionalidades de um fut específico. Inclui:
+ * - Visualização de informações do fut
+ * - Gerenciamento de membros e convidados
+ * - Sistema de votação e ranking
+ * - Configurações administrativas
+ * - Compartilhamento de rankings
+ * 
+ * @author Equipe +Fut
+ * @version 1.0.0
+ */
+
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { ArrowLeft, Settings, Users, Calendar, MapPin, Crown, X, ChevronLeft, ChevronRight, Copy, Edit, Save, Share2, LogOut } from 'lucide-react';
@@ -14,40 +29,60 @@ import RankingShare from '@/components/RankingShare';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import { useRankings } from '@/hooks/useRankings';
 
+/**
+ * Componente principal da página de detalhes do fut
+ * 
+ * Gerencia toda a interface e funcionalidades relacionadas
+ * a um fut específico, incluindo navegação por abas,
+ * ações administrativas e visualização de dados.
+ * 
+ * @returns JSX.Element - Página completa de detalhes do fut
+ */
 export default function FutDetailPage() {
-const router = useRouter();
-const { id, tab } = router.query;
+  // Configuração do roteador e parâmetros da URL
+  const router = useRouter();
+  const { id, tab } = router.query;
   
-  // Hook de estado
+  // Hook personalizado para gerenciar estado do fut
   const futState = useFutState();
   
-  // Get user from auth context
+  // Contexto de autenticação para obter dados do usuário logado
   const { user } = useAuth();
   
-  // Hook de ações
+  // Hook personalizado para ações relacionadas ao fut
   const futActions = useFutActions(futState.fut, futState.isAdmin || false, futState, user);
 
-  // Ranking states
+  // Estados para modais de ranking
   const [showRankingCalendar, setShowRankingCalendar] = useState(false);
   const [showRankingShare, setShowRankingShare] = useState(false);
   
-  // Leave fut states
+  // Estados para dropdown de sair do fut
   const [showLeaveFutDropdown, setShowLeaveFutDropdown] = useState(false);
 
-  // Ranking hook
+  // Hook personalizado para gerenciar dados de ranking
   const rankingData = useRankings({ 
     futId: id as string, 
     isAdmin: futState.isAdmin || false 
   });
 
-  // Navegar para aba específica se especificada na URL
+  /**
+   * Effect para navegação automática para aba específica
+   * 
+   * Verifica se há uma aba especificada na URL e navega
+   * automaticamente para ela quando o componente é montado.
+   */
   useEffect(() => {
     if (tab && typeof tab === 'string') {
       futState.setActiveTab(tab as any);
     }
   }, [tab, futState]);
 
-  // Fechar dropdown quando clicar fora
+  /**
+   * Effect para fechar dropdown ao clicar fora
+   * 
+   * Adiciona listener global para detectar cliques fora
+   * do dropdown de "sair do fut" e fechá-lo automaticamente.
+   */
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (showLeaveFutDropdown) {
@@ -62,27 +97,28 @@ const { id, tab } = router.query;
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showLeaveFutDropdown]);
 
-  // Loading state
+  // Estado de carregamento - exibe spinner enquanto dados são carregados
   if (futState.loading) {
-return (
-<div className="min-h-screen bg-primary flex items-center justify-center">
-<div className="text-secondary text-lg">Carregando...</div>
-</div>
-);
-}
+    return (
+      <div className="min-h-screen bg-primary flex items-center justify-center">
+        <div className="text-secondary text-lg">Carregando...</div>
+      </div>
+    );
+  }
 
-  // Fut not found
+  // Fut não encontrado - não renderiza nada se fut não existir
   if (!futState.fut) {
     return null;
   }
 
+  // Contagem de membros permanentes (exclui convidados avulsos)
   const memberCount = Object.entries(futState.members || {})
     .filter(([memberId, memberData]) => {
-      // Exclude only avulso guests, but include cadastrado guests who became members
+      // Exclui apenas convidados avulsos, mas inclui convidados cadastrados que se tornaram membros
       if (memberData.isGuest && memberData.guestType === 'avulso') {
-        return false; // Exclude avulso guests
+        return false; // Exclui convidados avulsos
       }
-      return true; // Include everyone else (members and cadastrado guests)
+      return true; // Inclui todos os outros (membros e convidados cadastrados)
     }).length;
   const isAdmin = futState.isAdmin || false;
 

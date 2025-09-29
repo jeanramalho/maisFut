@@ -268,7 +268,6 @@ export function useFutActions(
 
     // Prevent multiple simultaneous executions
     if (futState.loadingRanking) {
-      console.log('Ranking generation already in progress, skipping...');
       return;
     }
 
@@ -338,10 +337,7 @@ export function useFutActions(
         
         // Save rankings to Firebase only if not already saved
         if (!futState.showRanking) {
-          console.log('Saving rankings to Firebase...');
           await saveRankingsToFirebase(sortedPlayers, type);
-        } else {
-          console.log('Ranking already shown, skipping Firebase save');
         }
       }
       futState.setShowRanking(true);
@@ -764,7 +760,7 @@ export function useFutActions(
       // Voltar para a aba fut
       futState.setActiveTab('fut');
 
-      alert('Fut finalizado com sucesso!');
+      // Fut finalizado com sucesso
     } catch (error) {
       console.error('Error finalizing fut:', error);
       alert('Erro ao finalizar fut');
@@ -820,7 +816,7 @@ export function useFutActions(
       futState.setShowRanking(false);
       futState.setRanking(null);
       
-      alert('Dados do fut excluídos com sucesso!');
+      // Dados do fut excluídos com sucesso
     } catch (error) {
       console.error('Error deleting fut data:', error);
       alert('Erro ao excluir dados do fut');
@@ -838,7 +834,7 @@ export function useFutActions(
       });
 
       futState.setTeams({});
-      alert('Times excluídos com sucesso!');
+      // Times excluídos com sucesso
     } catch (error) {
       console.error('Error deleting teams:', error);
       alert('Erro ao excluir times');
@@ -984,7 +980,7 @@ export function useFutActions(
       // Reload announcements
       futState.loadAnnouncements();
       
-      alert('Aviso salvo com sucesso!');
+      // Aviso salvo com sucesso
     } catch (error) {
       console.error('Error saving announcement:', error);
       alert('Erro ao salvar aviso');
@@ -1007,7 +1003,7 @@ export function useFutActions(
         prev.filter((announcement: any) => announcement.id !== announcementId)
       );
       
-      alert('Aviso excluído com sucesso!');
+      // Aviso excluído com sucesso
     } catch (error) {
       console.error('Error deleting announcement:', error);
       alert('Erro ao excluir aviso');
