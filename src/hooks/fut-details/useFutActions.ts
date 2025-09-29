@@ -266,6 +266,12 @@ export function useFutActions(
   const handleGenerateRanking = useCallback(async (type: RankingType = 'pontuacao') => {
     if (!fut || !isAdmin) return;
 
+    // Prevent multiple simultaneous executions
+    if (futState.loadingRanking) {
+      console.log('Ranking generation already in progress, skipping...');
+      return;
+    }
+
     try {
       futState.setRankingType(type);
       futState.setLoadingRanking(true);
@@ -330,8 +336,13 @@ export function useFutActions(
         
         futState.setRanking(sortedPlayers);
         
-        // Save rankings to Firebase
-        await saveRankingsToFirebase(sortedPlayers, type);
+        // Save rankings to Firebase only if not already saved
+        if (!futState.showRanking) {
+          console.log('Saving rankings to Firebase...');
+          await saveRankingsToFirebase(sortedPlayers, type);
+        } else {
+          console.log('Ranking already shown, skipping Firebase save');
+        }
       }
       futState.setShowRanking(true);
       futState.setLoadingRanking(false);
@@ -344,7 +355,12 @@ export function useFutActions(
 
   // Helper function to generate ranking by type
   const generateRankingByType = useCallback(async (type: RankingType): Promise<RankingEntry[]> => {
-    if (!futState.members) return [];
+    console.log(`Generating ranking for type: ${type}`);
+    
+    if (!futState.members) {
+      console.log('No members found, returning empty array');
+      return [];
+    }
 
     // Calculate average votes for each player
     const playerAverages: Record<string, number> = {};
@@ -582,7 +598,7 @@ export function useFutActions(
       // Get current date
       const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
       
-      console.log(`Saving rankings for fut ${fut.id}, date ${currentDate}`);
+      console.log(`Saving rankings for fut ${fut.id}, date ${currentDate}, type ${type}`);
       
       // Check existing rankings for this date
       const futRankingsRef = ref(database, `futs/${fut.id}/rankings/${currentDate}`);
@@ -591,17 +607,55 @@ export function useFutActions(
       
       console.log(`Existing rankings for ${currentDate}:`, existingRankings);
 
+      // Allow multiple futs on the same day (fut-1, fut-2, fut-3, etc.)
+      // The key insight is that each fut session should be saved as a separate ranking
+      // We'll use a timestamp-based approach to ensure uniqueness
+      
+      console.log(`Found ${Object.keys(existingRankings).length} existing rankings for ${currentDate}`);
+      
+      // Check if we're trying to save the same fut session multiple times
+      // We can detect this by checking if the current fut state has already been saved
+      // If showRanking is true and we have existing rankings, it means this fut was already saved
+      
+      if (futState.showRanking && Object.keys(existingRankings).length > 0) {
+        // Check if the most recent ranking was created very recently (within 5 minutes)
+        // This helps distinguish between multiple futs vs duplicate saves
+        const mostRecentRanking = Object.values(existingRankings).reduce((latest: any, ranking: any) => {
+          return ranking.createdAt > latest.createdAt ? ranking : latest;
+        }, { createdAt: 0 }) as any;
+        
+        const timeDiff = Date.now() - mostRecentRanking.createdAt;
+        const fiveMinutes = 5 * 60 * 1000; // 5 minutes in milliseconds
+        
+        if (timeDiff < fiveMinutes) {
+          console.log(`Recent ranking found (${Math.round(timeDiff / 1000)}s ago), skipping save to avoid duplication`);
+          return;
+        }
+      }
+
       // Generate all ranking types
+      console.log('Generating pontuacao ranking...');
+      const pontuacaoRanking = await generateRankingByType('pontuacao');
+      console.log('Generating artilharia ranking...');
+      const artilhariaRanking = await generateRankingByType('artilharia');
+      console.log('Generating assistencias ranking...');
+      const assistenciasRanking = await generateRankingByType('assistencias');
+
       const allRankings = {
-        pontuacao: await generateRankingByType('pontuacao'),
-        artilharia: await generateRankingByType('artilharia'),
-        assistencias: await generateRankingByType('assistencias'),
+        pontuacao: pontuacaoRanking,
+        artilharia: artilhariaRanking,
+        assistencias: assistenciasRanking,
       };
 
       console.log('Generated rankings:', allRankings);
 
       // Determine fut number for this date (if multiple futs on same day)
-      const futNumber = Object.keys(existingRankings).length + 1;
+      // Count existing futs and add 1 for the new fut
+      const existingFutKeys = Object.keys(existingRankings);
+      const futNumber = existingFutKeys.length + 1;
+      
+      console.log(`Existing fut keys: ${existingFutKeys.join(', ')}`);
+      console.log(`New fut will be: fut-${futNumber}`);
 
       // Save fut ranking
       const futRanking: FutRanking = {
