@@ -1197,20 +1197,22 @@ return (
             <div className="flex items-center justify-between">
               <h3 className="text-white text-lg font-semibold">Rankings</h3>
               {isAdmin && (
-                <div className="flex space-x-2">
+                <div className="flex space-x-1">
                   <button
                     onClick={() => setShowRankingCalendar(true)}
-                    className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 transition-colors flex items-center space-x-1"
+                    className="bg-blue-600 text-white px-2 py-1 rounded text-xs hover:bg-blue-700 transition-colors flex items-center space-x-1"
+                    title="Ver calendário de rankings"
                   >
-                    <Calendar size={14} />
-                    <span>Calendário</span>
+                    <Calendar size={12} />
+                    <span className="hidden sm:inline">Calendário</span>
                   </button>
                   <button
                     onClick={() => setShowRankingShare(true)}
-                    className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 transition-colors flex items-center space-x-1"
+                    className="bg-green-600 text-white px-2 py-1 rounded text-xs hover:bg-green-700 transition-colors flex items-center space-x-1"
+                    title="Compartilhar ranking"
                   >
-                    <Share2 size={14} />
-                    <span>Compartilhar</span>
+                    <Share2 size={12} />
+                    <span className="hidden sm:inline">Compartilhar</span>
                   </button>
                 </div>
               )}

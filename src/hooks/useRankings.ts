@@ -16,147 +16,139 @@ export function useRankings({ futId, isAdmin }: UseRankingsProps) {
   const [availableDates, setAvailableDates] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
-  // Load available dates with rankings
-  const loadAvailableDates = useCallback(async () => {
+  // Real-time listener for available dates
+  useEffect(() => {
     if (!futId) return;
 
-    try {
-      const rankingsRef = ref(database, `futs/${futId}/rankings`);
-      const snapshot = await get(rankingsRef);
-      
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-        const dates = Object.keys(data).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
-        setAvailableDates(dates);
-      } else {
+    const rankingsRef = ref(database, `futs/${futId}/rankings`);
+    const unsubscribe = onValue(rankingsRef, (snapshot) => {
+      try {
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          const dates = Object.keys(data).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+          setAvailableDates(dates);
+        } else {
+          setAvailableDates([]);
+        }
+      } catch (error) {
+        console.error('Error loading available dates:', error);
         setAvailableDates([]);
       }
-    } catch (error) {
-      console.error('Error loading available dates:', error);
-      setAvailableDates([]);
-    }
+    });
+
+    return unsubscribe;
   }, [futId]);
 
-  // Load latest fut ranking (for rodada period)
-  const loadLatestRanking = useCallback(async () => {
-    if (!futId || availableDates.length === 0) {
-      setRankings([]);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const latestDate = availableDates[0];
-      const futRankingsRef = ref(database, `futs/${futId}/rankings/${latestDate}`);
-      const snapshot = await get(futRankingsRef);
-      
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-        // Get the latest fut for this date (highest fut number)
-        const futKeys = Object.keys(data);
-        const latestFutKey = futKeys.reduce((latest, key) => {
-          const futNumber = parseInt(key.split('-')[1]) || 0;
-          const latestNumber = parseInt(latest.split('-')[1]) || 0;
-          return futNumber > latestNumber ? key : latest;
-        }, futKeys[0]);
-        
-        const futRanking: FutRanking = data[latestFutKey];
-        const rankingData = futRanking.rankings[type] || [];
-        setRankings(rankingData);
-      } else {
-        setRankings([]);
-      }
-    } catch (error) {
-      console.error('Error loading latest ranking:', error);
-      setRankings([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [futId, availableDates, type]);
-
-  // Load annual ranking
-  const loadAnnualRanking = useCallback(async () => {
-    if (!futId) {
-      setRankings([]);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const currentYear = new Date().getFullYear();
-      const annualRankingsRef = ref(database, `futs/${futId}/rankings-anual/${currentYear}`);
-      const snapshot = await get(annualRankingsRef);
-      
-      if (snapshot.exists()) {
-        const annualRanking: AnnualRanking = snapshot.val();
-        const rankingData = annualRanking.rankings[type] || [];
-        setRankings(rankingData);
-      } else {
-        setRankings([]);
-      }
-    } catch (error) {
-      console.error('Error loading annual ranking:', error);
-      setRankings([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [futId, type]);
-
-  // Load ranking for specific date
-  const loadRankingForDate = useCallback(async (date: string) => {
-    if (!futId) {
-      setRankings([]);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const futRankingsRef = ref(database, `futs/${futId}/rankings/${date}`);
-      const snapshot = await get(futRankingsRef);
-      
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-        // Get the latest fut for this date
-        const futKeys = Object.keys(data);
-        const latestFutKey = futKeys.reduce((latest, key) => {
-          const futNumber = parseInt(key.split('-')[1]) || 0;
-          const latestNumber = parseInt(latest.split('-')[1]) || 0;
-          return futNumber > latestNumber ? key : latest;
-        }, futKeys[0]);
-        
-        const futRanking: FutRanking = data[latestFutKey];
-        const rankingData = futRanking.rankings[type] || [];
-        setRankings(rankingData);
-      } else {
-        setRankings([]);
-      }
-    } catch (error) {
-      console.error('Error loading ranking for date:', error);
-      setRankings([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [futId, type]);
-
-  // Load rankings based on current period
-  const loadRankings = useCallback(() => {
-    if (period === 'anual') {
-      loadAnnualRanking();
-    } else if (selectedDate) {
-      loadRankingForDate(selectedDate);
-    } else {
-      loadLatestRanking();
-    }
-  }, [period, selectedDate, loadAnnualRanking, loadRankingForDate, loadLatestRanking]);
-
-  // Load data when component mounts or dependencies change
+  // Real-time listener for latest ranking (rodada period)
   useEffect(() => {
-    loadAvailableDates();
-  }, [loadAvailableDates]);
+    if (!futId || period !== 'rodada' || selectedDate) return;
 
+    const unsubscribe = onValue(ref(database, `futs/${futId}/rankings`), async (snapshot) => {
+      try {
+        setLoading(true);
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          const dates = Object.keys(data).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+          
+          if (dates.length > 0) {
+            const latestDate = dates[0];
+            const futRankingsRef = ref(database, `futs/${futId}/rankings/${latestDate}`);
+            const futSnapshot = await get(futRankingsRef);
+            
+            if (futSnapshot.exists()) {
+              const futData = futSnapshot.val();
+              const futKeys = Object.keys(futData);
+              const latestFutKey = futKeys.reduce((latest, key) => {
+                const futNumber = parseInt(key.split('-')[1]) || 0;
+                const latestNumber = parseInt(latest.split('-')[1]) || 0;
+                return futNumber > latestNumber ? key : latest;
+              }, futKeys[0]);
+              
+              const futRanking: FutRanking = futData[latestFutKey];
+              const rankingData = futRanking.rankings[type] || [];
+              setRankings(rankingData);
+            } else {
+              setRankings([]);
+            }
+          } else {
+            setRankings([]);
+          }
+        } else {
+          setRankings([]);
+        }
+      } catch (error) {
+        console.error('Error loading latest ranking:', error);
+        setRankings([]);
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    return unsubscribe;
+  }, [futId, period, type, selectedDate]);
+
+  // Real-time listener for annual ranking
   useEffect(() => {
-    loadRankings();
-  }, [loadRankings]);
+    if (!futId || period !== 'anual') return;
+
+    const currentYear = new Date().getFullYear();
+    const annualRankingsRef = ref(database, `futs/${futId}/rankings-anual/${currentYear}`);
+    
+    const unsubscribe = onValue(annualRankingsRef, (snapshot) => {
+      try {
+        setLoading(true);
+        if (snapshot.exists()) {
+          const annualRanking: AnnualRanking = snapshot.val();
+          const rankingData = annualRanking.rankings[type] || [];
+          setRankings(rankingData);
+        } else {
+          setRankings([]);
+        }
+      } catch (error) {
+        console.error('Error loading annual ranking:', error);
+        setRankings([]);
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    return unsubscribe;
+  }, [futId, period, type]);
+
+  // Real-time listener for specific date ranking
+  useEffect(() => {
+    if (!futId || !selectedDate || period !== 'rodada') return;
+
+    const futRankingsRef = ref(database, `futs/${futId}/rankings/${selectedDate}`);
+    
+    const unsubscribe = onValue(futRankingsRef, (snapshot) => {
+      try {
+        setLoading(true);
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          const futKeys = Object.keys(data);
+          const latestFutKey = futKeys.reduce((latest, key) => {
+            const futNumber = parseInt(key.split('-')[1]) || 0;
+            const latestNumber = parseInt(latest.split('-')[1]) || 0;
+            return futNumber > latestNumber ? key : latest;
+          }, futKeys[0]);
+          
+          const futRanking: FutRanking = data[latestFutKey];
+          const rankingData = futRanking.rankings[type] || [];
+          setRankings(rankingData);
+        } else {
+          setRankings([]);
+        }
+      } catch (error) {
+        console.error('Error loading ranking for date:', error);
+        setRankings([]);
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    return unsubscribe;
+  }, [futId, selectedDate, type, period]);
 
   // Handle period change
   const handlePeriodChange = useCallback((newPeriod: RankingPeriod) => {
@@ -185,6 +177,5 @@ export function useRankings({ futId, isAdmin }: UseRankingsProps) {
     handlePeriodChange,
     handleTypeChange,
     handleDateSelect,
-    loadRankings,
   };
 }

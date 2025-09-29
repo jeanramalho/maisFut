@@ -17,12 +17,12 @@ export default function RankingFilters({
   isAdmin = false
 }: RankingFiltersProps) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Period Filters */}
-      <div className="flex space-x-2">
+      <div className="flex space-x-1">
         <button
           onClick={() => onPeriodChange('rodada')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+          className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
             period === 'rodada'
               ? 'bg-secondary text-primary'
               : 'bg-gray-600 text-white hover:bg-gray-700'
@@ -32,7 +32,7 @@ export default function RankingFilters({
         </button>
         <button
           onClick={() => onPeriodChange('anual')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+          className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
             period === 'anual'
               ? 'bg-secondary text-primary'
               : 'bg-gray-600 text-white hover:bg-gray-700'
@@ -43,10 +43,10 @@ export default function RankingFilters({
       </div>
 
       {/* Type Filters */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 gap-1">
         <button
           onClick={() => onTypeChange('pontuacao')}
-          className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+          className={`px-2 py-2 rounded-lg text-xs font-medium transition-colors ${
             type === 'pontuacao'
               ? 'bg-secondary text-primary'
               : 'bg-gray-600 text-white hover:bg-gray-700'
@@ -56,7 +56,7 @@ export default function RankingFilters({
         </button>
         <button
           onClick={() => onTypeChange('artilharia')}
-          className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+          className={`px-2 py-2 rounded-lg text-xs font-medium transition-colors ${
             type === 'artilharia'
               ? 'bg-secondary text-primary'
               : 'bg-gray-600 text-white hover:bg-gray-700'
@@ -66,7 +66,7 @@ export default function RankingFilters({
         </button>
         <button
           onClick={() => onTypeChange('assistencias')}
-          className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+          className={`px-2 py-2 rounded-lg text-xs font-medium transition-colors ${
             type === 'assistencias'
               ? 'bg-secondary text-primary'
               : 'bg-gray-600 text-white hover:bg-gray-700'

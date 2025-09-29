@@ -68,15 +68,15 @@ export default function RankingCalendar({ availableDates, onDateSelect, onClose 
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-primary-lighter rounded-lg p-6 w-full max-w-sm">
-        <div className="flex items-center justify-between mb-4">
+      <div className="bg-primary-lighter rounded-lg p-4 w-full max-w-sm">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center space-x-2">
-            <Calendar size={20} className="text-secondary" />
-            <h3 className="text-white text-lg font-semibold">Calendário de Rankings</h3>
+            <Calendar size={18} className="text-secondary" />
+            <h3 className="text-white text-base font-semibold">Calendário de Rankings</h3>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors"
+            className="text-gray-400 hover:text-white transition-colors text-lg"
           >
             ✕
           </button>

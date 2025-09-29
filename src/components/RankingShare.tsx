@@ -84,15 +84,15 @@ export default function RankingShare({ rankings, type, period, futName, onClose 
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-primary-lighter rounded-lg p-6 w-full max-w-sm">
-        <div className="flex items-center justify-between mb-4">
+      <div className="bg-primary-lighter rounded-lg p-4 w-full max-w-sm">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center space-x-2">
-            <Share2 size={20} className="text-secondary" />
-            <h3 className="text-white text-lg font-semibold">Compartilhar Ranking</h3>
+            <Share2 size={18} className="text-secondary" />
+            <h3 className="text-white text-base font-semibold">Compartilhar Ranking</h3>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors"
+            className="text-gray-400 hover:text-white transition-colors text-lg"
           >
             ✕
           </button>
@@ -109,10 +109,10 @@ export default function RankingShare({ rankings, type, period, futName, onClose 
           </div>
         </div>
 
-        <div className="flex space-x-3">
+        <div className="flex space-x-2">
           <button
             onClick={handleCopy}
-            className={`flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+            className={`flex-1 flex items-center justify-center space-x-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
               copied
                 ? 'bg-green-600 text-white'
                 : 'bg-gray-600 text-white hover:bg-gray-700'
@@ -120,12 +120,12 @@ export default function RankingShare({ rankings, type, period, futName, onClose 
           >
             {copied ? (
               <>
-                <Check size={16} />
+                <Check size={14} />
                 <span>Copiado!</span>
               </>
             ) : (
               <>
-                <Copy size={16} />
+                <Copy size={14} />
                 <span>Copiar</span>
               </>
             )}
@@ -134,9 +134,9 @@ export default function RankingShare({ rankings, type, period, futName, onClose 
           {navigator.share && (
             <button
               onClick={handleShare}
-              className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-secondary text-primary rounded-lg font-medium hover:bg-secondary/80 transition-colors"
+              className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 bg-secondary text-primary rounded-lg text-sm font-medium hover:bg-secondary/80 transition-colors"
             >
-              <Share2 size={16} />
+              <Share2 size={14} />
               <span>Compartilhar</span>
             </button>
           )}
