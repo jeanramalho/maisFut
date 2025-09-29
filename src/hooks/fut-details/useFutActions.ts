@@ -2185,5 +2185,141 @@ export function useFutActions(
     handleMakeAdmin,
     handleRemoveAdmin,
     handleAddMember,
+
+  };
+
+  // Função para verificar login do admin
+  const verifyAdminLogin = useCallback(async (email: string, password: string): Promise<boolean> => {
+    try {
+      const { signInWithEmailAndPassword } = await import('firebase/auth');
+      const { auth } = await import('@/lib/firebase');
+      
+      await signInWithEmailAndPassword(auth, email, password);
+      return true;
+    } catch (error) {
+      console.error('Error verifying admin login:', error);
+      return false;
+    }
+  }, []);
+
+  // Função para excluir fut completamente
+  const handleDeleteFutWithAuth = useCallback(async (email: string, password: string) => {
+    if (!fut || !isAdmin) return;
+
+    try {
+      // Verificar login do admin
+      const loginValid = await verifyAdminLogin(email, password);
+      if (!loginValid) {
+        alert('Dados de login incorretos. Operação cancelada.');
+        return false;
+      }
+
+      // Excluir todos os dados do fut
+      const futRef = ref(database, `futs/${fut.id}`);
+      await remove(futRef);
+
+      alert('Fut excluído com sucesso!');
+      
+      // Redirecionar para página inicial após exclusão
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 1000);
+      
+      return true;
+    } catch (error) {
+      console.error('Error deleting fut:', error);
+      alert('Erro ao excluir fut');
+      return false;
+    }
+  }, [fut, isAdmin, verifyAdminLogin]);
+
+  // Função para limpar dados do fut (manter estrutura básica)
+  const handleClearFutData = useCallback(async (email: string, password: string) => {
+    if (!fut || !isAdmin) return;
+
+    try {
+      // Verificar login do admin
+      const loginValid = await verifyAdminLogin(email, password);
+      if (!loginValid) {
+        alert('Dados de login incorretos. Operação cancelada.');
+        return false;
+      }
+
+      // Limpar dados mantendo estrutura básica
+      const futRef = ref(database, `futs/${fut.id}`);
+      const updateData = {
+        finalized: false,
+        finalizedAt: null,
+        futStarted: false,
+        futEnded: false,
+        votingOpen: false,
+        votingEnded: false,
+        listReleased: false,
+        confirmedMembers: [],
+        teams: null,
+        teamStats: null,
+        playerStats: null,
+        userVotes: null,
+        ranking: null,
+        showRanking: false,
+        updatedAt: new Date().toISOString()
+      };
+
+      await update(futRef, updateData);
+
+      // Limpar rankings
+      const rankingsRef = ref(database, `futs/${fut.id}/rankings`);
+      await remove(rankingsRef);
+
+      // Limpar rankings anuais
+      const annualRankingsRef = ref(database, `futs/${fut.id}/rankings-anual`);
+      await remove(annualRankingsRef);
+
+      // Limpar histórico
+      const historyRef = ref(database, `futs/${fut.id}/history`);
+      await remove(historyRef);
+
+      alert('Dados do fut limpos com sucesso!');
+      return true;
+    } catch (error) {
+      console.error('Error clearing fut data:', error);
+      alert('Erro ao limpar dados do fut');
+      return false;
+    }
+  }, [fut, isAdmin, verifyAdminLogin]);
+
+  return {
+    // Funções de gerenciamento de fut
+    handleStartFut,
+    handleEndFut,
+    handleReleaseList,
+    handleStartVoting,
+    handleEndVoting,
+    handleFinalizeFut,
+    handleGenerateRanking,
+    handleDownloadBolaCards,
+
+    // Funções de gerenciamento de convidados
+    handleAddGuest,
+    handleSearchUsers,
+
+    // Funções de gerenciamento de times
+    handleTeamDraw,
+    handleTeamSelect,
+    handleRemovePlayerFromTeam,
+    handleSaveTeams,
+    handleRemoveFromConfirmed,
+
+    // Funções de gerenciamento de membros e admins
+    handleMakeAdmin,
+    handleRemoveAdmin,
+    handleAddMember,
+
+    // Função de verificação de login para modais de confirmação
+    verifyAdminLogin,
+
+    // Funções de configurações
+    handleDeleteFutWithAuth,
+    handleClearFutData,
   };
 }

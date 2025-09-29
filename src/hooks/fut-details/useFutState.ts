@@ -31,6 +31,7 @@ export function useFutState() {
   const [showMakeAdminModal, setShowMakeAdminModal] = useState(false);
   const [showDeleteDataModal, setShowDeleteDataModal] = useState(false);
   const [showDeleteFutModal, setShowDeleteFutModal] = useState(false);
+  const [showClearDataModal, setShowClearDataModal] = useState(false);
   const [showBolaCardsModal, setShowBolaCardsModal] = useState(false);
 
   // Estados do Fut (Fluxo Principal)
@@ -357,6 +358,8 @@ export function useFutState() {
     setShowDeleteDataModal,
     showDeleteFutModal,
     setShowDeleteFutModal,
+    showClearDataModal,
+    setShowClearDataModal,
     showBolaCardsModal,
     setShowBolaCardsModal,
 

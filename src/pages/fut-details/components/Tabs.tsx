@@ -50,7 +50,7 @@ export default function Tabs({ activeTab, setActiveTab, isAdmin, votingOpen, fut
                          switch (tab) {
                            case 'fut': return 'Fut';
                            case 'times': return 'Times';
-                           case 'data': return 'Dados';
+                           case 'data': return 'Stats';
                            case 'info': return 'Info';
                            case 'members': return 'Membros';
                            case 'ranking': return 'Ranking';

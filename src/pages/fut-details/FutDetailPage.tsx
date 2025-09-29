@@ -11,6 +11,7 @@ import RankingFilters from '@/components/RankingFilters';
 import RankingList from '@/components/RankingList';
 import RankingCalendar from '@/components/RankingCalendar';
 import RankingShare from '@/components/RankingShare';
+import ConfirmationModal from '@/components/ConfirmationModal';
 import { useRankings } from '@/hooks/useRankings';
 
 export default function FutDetailPage() {
@@ -1860,10 +1861,10 @@ return (
               
               <div className="pt-4 border-t border-gray-700">
                 <button 
-                  onClick={() => futState.setShowDeleteDataModal(true)}
+                  onClick={() => futState.setShowClearDataModal(true)}
                   className="w-full bg-orange-600 text-white py-3 rounded-lg font-medium hover:bg-orange-700 transition-colors"
                 >
-                  Excluir Dados do Fut
+                  Limpar Dados do Fut
                 </button>
               </div>
               
@@ -2758,6 +2759,34 @@ return (
           period={rankingData.period}
           futName={futState.fut?.name || 'Fut'}
           onClose={() => setShowRankingShare(false)}
+        />
+      )}
+
+      {/* Delete Fut Modal */}
+      {futState.showDeleteFutModal && (
+        <ConfirmationModal
+          isOpen={futState.showDeleteFutModal}
+          onClose={() => futState.setShowDeleteFutModal(false)}
+          onConfirm={futActions.handleDeleteFutWithAuth || (() => Promise.resolve(false))}
+          title="Excluir Fut"
+          message="Esta ação irá excluir permanentemente todos os dados do fut. Esta ação não pode ser desfeita."
+          confirmText="Excluir Fut"
+          confirmButtonColor="bg-red-600"
+          confirmButtonHoverColor="hover:bg-red-700"
+        />
+      )}
+
+      {/* Clear Data Modal */}
+      {futState.showClearDataModal && (
+        <ConfirmationModal
+          isOpen={futState.showClearDataModal}
+          onClose={() => futState.setShowClearDataModal(false)}
+          onConfirm={futActions.handleClearFutData || (() => Promise.resolve(false))}
+          title="Limpar Dados do Fut"
+          message="Esta ação irá limpar todos os dados do fut (rankings, histórico, estatísticas), mas manterá a estrutura básica do fut."
+          confirmText="Limpar Dados"
+          confirmButtonColor="bg-orange-600"
+          confirmButtonHoverColor="hover:bg-orange-700"
         />
       )}
 </div>
