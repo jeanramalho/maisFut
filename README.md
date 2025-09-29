@@ -190,23 +190,12 @@ npm run deploy
 - **User Engagement**: Métricas de uso em tempo real
 - **Error Tracking**: Monitoramento de erros em produção
 
-## 🚀 Roadmap Futuro
-
-- [ ] Sistema de notificações push
-- [ ] Integração com calendários (Google, Apple)
-- [ ] Modo offline com sincronização
-- [ ] Análises avançadas e relatórios
-- [ ] Sistema de torneios e campeonatos
-- [ ] Integração com redes sociais
-- [ ] App nativo para iOS/Android
-
 ## 📞 Contato
 
 Estou disponível para discutir detalhes técnicos, arquiteturais ou oportunidades profissionais:
 
 - LinkedIn: [Jean Ramalho](https://www.linkedin.com/in/jean-ramalho/)
 - Email: jeanramalho.dev@gmail.com
-- GitHub: [@jeanramalho](https://github.com/jeanramalho)
 
 ---
 
