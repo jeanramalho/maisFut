@@ -469,6 +469,111 @@ export function useFutActions(
     }
   }, [mergeRankings]);
 
+  // Helper function to recalculate annual rankings from all saved rankings
+  const recalculateAnnualRankings = useCallback(async (futId: string, year: number) => {
+    try {
+      // Get all rankings for the year
+      const rankingsRef = ref(database, `futs/${futId}/rankings`);
+      const rankingsSnapshot = await get(rankingsRef);
+      
+      if (!rankingsSnapshot.exists()) {
+        console.log('No rankings found for recalculation');
+        return;
+      }
+
+      const allRankingsData = rankingsSnapshot.val();
+      const annualStats: Record<string, { goals: number; assists: number; score: number }> = {};
+
+      console.log(`Recalculating annual rankings for year ${year}. Found rankings data:`, allRankingsData);
+
+      // Process all rankings for the year
+      Object.entries(allRankingsData).forEach(([date, dateRankings]: [string, any]) => {
+        const rankingYear = new Date(date).getFullYear();
+        console.log(`Processing date ${date}, year ${rankingYear}`);
+        
+        if (rankingYear === year) {
+          // Process all futs for this date (fut-1, fut-2, etc.)
+          Object.entries(dateRankings).forEach(([futKey, futRanking]: [string, any]) => {
+            console.log(`Processing ${futKey} for date ${date}`);
+            const rankings = futRanking.rankings;
+            
+            // Use pontuacao ranking as base (it has all the stats for this fut)
+            // We only sum once per fut to avoid duplication
+            if (rankings.pontuacao) {
+              rankings.pontuacao.forEach((player: RankingEntry) => {
+                if (!annualStats[player.playerId]) {
+                  annualStats[player.playerId] = {
+                    goals: 0,
+                    assists: 0,
+                    score: 0,
+                  };
+                }
+                
+                // Sum the ranking scores from this fut (not raw votes)
+                // The ranking scores are already calculated from votes + goals + assists
+                annualStats[player.playerId].goals += player.goals || 0;
+                annualStats[player.playerId].assists += player.assists || 0;
+                annualStats[player.playerId].score += player.score || 0;
+                
+                console.log(`Added fut stats for ${player.name}: +${player.goals} goals, +${player.assists} assists, +${player.score} score`);
+              });
+            }
+          });
+        }
+      });
+
+      console.log('Final annual stats:', annualStats);
+
+      // Get player names from fut members
+      const futSnapshot = await get(ref(database, `futs/${futId}`));
+      const fut = futSnapshot.val();
+      const members = fut?.members || {};
+
+      // Convert to ranking format
+      const annualRankings = {
+        pontuacao: Object.entries(annualStats)
+          .map(([playerId, stats]) => ({
+            playerId,
+            name: members[playerId]?.name || 'Jogador',
+            score: stats.score,
+            goals: stats.goals,
+            assists: stats.assists,
+          }))
+          .sort((a, b) => b.score - a.score),
+        artilharia: Object.entries(annualStats)
+          .map(([playerId, stats]) => ({
+            playerId,
+            name: members[playerId]?.name || 'Jogador',
+            score: stats.goals,
+            goals: stats.goals,
+            assists: stats.assists,
+          }))
+          .sort((a, b) => b.score - a.score),
+        assistencias: Object.entries(annualStats)
+          .map(([playerId, stats]) => ({
+            playerId,
+            name: members[playerId]?.name || 'Jogador',
+            score: stats.assists,
+            goals: stats.goals,
+            assists: stats.assists,
+          }))
+          .sort((a, b) => b.score - a.score),
+      };
+
+      // Update annual rankings
+      const annualRankingsRef = ref(database, `futs/${futId}/rankings-anual/${year}`);
+      await set(annualRankingsRef, {
+        year,
+        rankings: annualRankings,
+        lastUpdated: Date.now(),
+      });
+
+      console.log(`Annual rankings recalculated for fut ${futId}, year ${year}`);
+    } catch (error) {
+      console.error('Error recalculating annual rankings:', error);
+    }
+  }, []);
+
   // Função para salvar rankings no Firebase
   const saveRankingsToFirebase = useCallback(async (rankings: RankingEntry[], type: RankingType) => {
     if (!fut || !isAdmin) return;
@@ -477,6 +582,15 @@ export function useFutActions(
       // Get current date
       const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
       
+      console.log(`Saving rankings for fut ${fut.id}, date ${currentDate}`);
+      
+      // Check existing rankings for this date
+      const futRankingsRef = ref(database, `futs/${fut.id}/rankings/${currentDate}`);
+      const existingRankingsSnapshot = await get(futRankingsRef);
+      const existingRankings = existingRankingsSnapshot.val() || {};
+      
+      console.log(`Existing rankings for ${currentDate}:`, existingRankings);
+
       // Generate all ranking types
       const allRankings = {
         pontuacao: await generateRankingByType('pontuacao'),
@@ -484,10 +598,9 @@ export function useFutActions(
         assistencias: await generateRankingByType('assistencias'),
       };
 
+      console.log('Generated rankings:', allRankings);
+
       // Determine fut number for this date (if multiple futs on same day)
-      const futRankingsRef = ref(database, `futs/${fut.id}/rankings/${currentDate}`);
-      const existingRankingsSnapshot = await get(futRankingsRef);
-      const existingRankings = existingRankingsSnapshot.val() || {};
       const futNumber = Object.keys(existingRankings).length + 1;
 
       // Save fut ranking
@@ -500,15 +613,20 @@ export function useFutActions(
 
       await set(ref(database, `futs/${fut.id}/rankings/${currentDate}/fut-${futNumber}`), futRanking);
 
-      // Update annual rankings
-      const year = new Date(currentDate).getFullYear();
-      await updateAnnualRankings(fut.id, year, allRankings);
-
       console.log(`Rankings saved for fut ${fut.id}, date ${currentDate}, fut-${futNumber}`);
     } catch (error) {
       console.error('Error saving rankings to Firebase:', error);
     }
-  }, [fut, isAdmin, generateRankingByType, updateAnnualRankings]);
+  }, [fut, isAdmin, generateRankingByType]);
+
+  // Função para forçar recálculo dos rankings anuais (útil para debug)
+  const forceRecalculateAnnualRankings = useCallback(async () => {
+    if (!fut || !isAdmin) return;
+    
+    const currentYear = new Date().getFullYear();
+    console.log(`Forcing recalculation of annual rankings for year ${currentYear}`);
+    await recalculateAnnualRankings(fut.id, currentYear);
+  }, [fut, isAdmin, recalculateAnnualRankings]);
 
   // Função para finalizar fut
   const handleFinalizeFut = useCallback(async () => {
@@ -547,6 +665,11 @@ export function useFutActions(
       };
       await push(historyRef, historyEntry);
 
+      // Update annual rankings when finalizing fut
+      const currentYear = new Date().getFullYear();
+      await recalculateAnnualRankings(fut.id, currentYear);
+      console.log(`Annual rankings updated for year ${currentYear} when finalizing fut`);
+
       // Reset all states
       futState.setFutStarted(false);
       futState.setFutEnded(false);
@@ -571,7 +694,7 @@ export function useFutActions(
       console.error('Error finalizing fut:', error);
       alert('Erro ao finalizar fut');
     }
-  }, [fut, isAdmin, futState]);
+  }, [fut, isAdmin, futState, recalculateAnnualRankings]);
 
   // Função para deletar fut
   const handleDeleteFut = useCallback(async () => {
@@ -1995,6 +2118,7 @@ export function useFutActions(
     handleUpdateFutInfo,
     handleSaveAnnouncement,
     handleDeleteAnnouncement,
+    forceRecalculateAnnualRankings,
     handleRemoveMember,
     handleTeamDraw,
     handleTeamSelect,

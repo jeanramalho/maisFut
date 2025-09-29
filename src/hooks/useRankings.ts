@@ -48,28 +48,36 @@ export function useRankings({ futId, isAdmin }: UseRankingsProps) {
         setLoading(true);
         if (snapshot.exists()) {
           const data = snapshot.val();
-          const dates = Object.keys(data).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
           
-          if (dates.length > 0) {
-            const latestDate = dates[0];
-            const futRankingsRef = ref(database, `futs/${futId}/rankings/${latestDate}`);
-            const futSnapshot = await get(futRankingsRef);
-            
-            if (futSnapshot.exists()) {
-              const futData = futSnapshot.val();
-              const futKeys = Object.keys(futData);
-              const latestFutKey = futKeys.reduce((latest, key) => {
-                const futNumber = parseInt(key.split('-')[1]) || 0;
-                const latestNumber = parseInt(latest.split('-')[1]) || 0;
-                return futNumber > latestNumber ? key : latest;
-              }, futKeys[0]);
+          // Find the latest fut across all dates
+          let latestFutRanking: FutRanking | null = null;
+          let latestDate = '';
+          let latestFutNumber = 0;
+          let latestCreatedAt = 0;
+          
+          Object.entries(data).forEach(([date, dateRankings]: [string, any]) => {
+            Object.entries(dateRankings).forEach(([futKey, futRanking]: [string, any]) => {
+              const futNumber = parseInt(futKey.split('-')[1]) || 0;
+              const futDate = new Date(date).getTime();
+              const latestTime = new Date(latestDate).getTime();
+              const createdAt = futRanking.createdAt || 0;
               
-              const futRanking: FutRanking = futData[latestFutKey];
-              const rankingData = futRanking.rankings[type] || [];
-              setRankings(rankingData);
-            } else {
-              setRankings([]);
-            }
+              // If this fut is newer (later date, same date with higher fut number, or same date/fut with later createdAt)
+              if (futDate > latestTime || 
+                  (futDate === latestTime && futNumber > latestFutNumber) ||
+                  (futDate === latestTime && futNumber === latestFutNumber && createdAt > latestCreatedAt)) {
+                latestFutRanking = futRanking;
+                latestDate = date;
+                latestFutNumber = futNumber;
+                latestCreatedAt = createdAt;
+              }
+            });
+          });
+          
+          if (latestFutRanking) {
+            const rankingData = latestFutRanking.rankings[type] || [];
+            setRankings(rankingData);
+            console.log(`Loading latest ranking from ${latestDate}, fut-${latestFutNumber}`);
           } else {
             setRankings([]);
           }
