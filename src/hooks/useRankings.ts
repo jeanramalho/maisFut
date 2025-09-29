@@ -77,7 +77,7 @@ export function useRankings({ futId, isAdmin }: UseRankingsProps) {
           });
           
           if (latestFutRanking) {
-            const rankingData = latestFutRanking.rankings[type] || [];
+            const rankingData = (latestFutRanking as any).rankings[type] || [];
             setRankings(rankingData);
           } else {
             setRankings([]);
