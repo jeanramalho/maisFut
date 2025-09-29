@@ -8,10 +8,10 @@ import { Fut, RankingType, RankingEntry, FutRanking, AnnualRanking } from './typ
 export function useFutActions(
   fut: Fut | null,
   isAdmin: boolean,
-  futState: any
+  futState: any,
+  user: any
 ) {
   const router = useRouter();
-  const { user } = useAuth();
 
   // Função para obter texto de recorrência
   const getRecurrenceText = useCallback(() => {
@@ -540,17 +540,38 @@ export function useFutActions(
 
       console.log('Final annual stats:', annualStats);
 
-      // Get player names from fut members
+      // Get player names from fut members and users
       const futSnapshot = await get(ref(database, `futs/${futId}`));
       const fut = futSnapshot.val();
       const members = fut?.members || {};
+
+      // Load complete user data for all players
+      const playerNames: Record<string, string> = {};
+      
+      for (const playerId of Object.keys(annualStats)) {
+        try {
+          const userRef = ref(database, `users/${playerId}`);
+          const userSnapshot = await get(userRef);
+          const userData = userSnapshot.val();
+          
+          if (userData && userData.name) {
+            playerNames[playerId] = userData.name;
+          } else {
+            console.warn(`No user data found for player ${playerId} in annual ranking`);
+            playerNames[playerId] = 'Jogador';
+          }
+        } catch (error) {
+          console.error(`Error loading user data for ${playerId}:`, error);
+          playerNames[playerId] = 'Jogador';
+        }
+      }
 
       // Convert to ranking format
       const annualRankings = {
         pontuacao: Object.entries(annualStats)
           .map(([playerId, stats]) => ({
             playerId,
-            name: members[playerId]?.name || 'Jogador',
+            name: playerNames[playerId] || 'Jogador',
             score: stats.score,
             goals: stats.goals,
             assists: stats.assists,
@@ -559,7 +580,7 @@ export function useFutActions(
         artilharia: Object.entries(annualStats)
           .map(([playerId, stats]) => ({
             playerId,
-            name: members[playerId]?.name || 'Jogador',
+            name: playerNames[playerId] || 'Jogador',
             score: stats.goals,
             goals: stats.goals,
             assists: stats.assists,
@@ -568,7 +589,7 @@ export function useFutActions(
         assistencias: Object.entries(annualStats)
           .map(([playerId, stats]) => ({
             playerId,
-            name: members[playerId]?.name || 'Jogador',
+            name: playerNames[playerId] || 'Jogador',
             score: stats.assists,
             goals: stats.goals,
             assists: stats.assists,
@@ -2142,52 +2163,6 @@ export function useFutActions(
     }
   }, [fut, isAdmin, futState]);
 
-  return {
-    getRecurrenceText,
-    getNextFutDate,
-    handleReleaseList,
-    handleConfirmPresence,
-    handleStartFut,
-    handleShareList,
-    handleGuestTypeSelect,
-    handleSearchUsers,
-    handleAddGuest,
-    handleAddSearchedUser,
-    handleAddRegisteredGuest,
-    handleSearchMembers,
-    handleEndFut,
-    handleStartVoting,
-    handleEndVoting,
-    handleVote,
-    handleGenerateRanking,
-    handleFinalizeFut,
-    handleDeleteFut,
-    handleDeleteData,
-    handleDeleteTeams,
-    handleShareTeams,
-    handleUpdateTeamWins,
-    handleUpdatePlayerStats,
-    handleGenerateImage,
-    handleDownloadBolaCards,
-    handleUpdateFutInfo,
-    handleSaveAnnouncement,
-    handleDeleteAnnouncement,
-    forceRecalculateAnnualRankings,
-    handleRemoveMember,
-    handleTeamDraw,
-    handleTeamSelect,
-    handleAddPlayerToTeam,
-    handleRemovePlayerFromTeam,
-    handleSaveTeams,
-    handleRemoveFromConfirmed,
-
-    // Funções de gerenciamento de membros e admins
-    handleMakeAdmin,
-    handleRemoveAdmin,
-    handleAddMember,
-
-  };
-
   // Função para verificar login do admin
   const verifyAdminLogin = useCallback(async (email: string, password: string): Promise<boolean> => {
     try {
@@ -2203,8 +2178,8 @@ export function useFutActions(
   }, []);
 
   // Função para excluir fut completamente
-  const handleDeleteFutWithAuth = useCallback(async (email: string, password: string) => {
-    if (!fut || !isAdmin) return;
+  const handleDeleteFutWithAuth = useCallback(async (email: string, password: string): Promise<boolean> => {
+    if (!fut || !isAdmin) return false;
 
     try {
       // Verificar login do admin
@@ -2234,8 +2209,8 @@ export function useFutActions(
   }, [fut, isAdmin, verifyAdminLogin]);
 
   // Função para limpar dados do fut (manter estrutura básica)
-  const handleClearFutData = useCallback(async (email: string, password: string) => {
-    if (!fut || !isAdmin) return;
+  const handleClearFutData = useCallback(async (email: string, password: string): Promise<boolean> => {
+    if (!fut || !isAdmin) return false;
 
     try {
       // Verificar login do admin
@@ -2288,24 +2263,91 @@ export function useFutActions(
     }
   }, [fut, isAdmin, verifyAdminLogin]);
 
+  // Função para sair do fut
+  const handleLeaveFut = useCallback(async (): Promise<boolean> => {
+    if (!fut || !user) {
+      console.error('Missing fut or user:', { fut: !!fut, user: !!user });
+      return false;
+    }
+
+    try {
+      console.log('Leaving fut:', { futId: fut.id, userId: user.uid });
+      
+      // Remover usuário dos membros
+      const futRef = ref(database, `futs/${fut.id}`);
+      const updatedMembers = { ...(fut.members || {}) };
+      delete updatedMembers[user.uid];
+
+      // Se for admin (mas não original), remover dos admins também
+      const updatedAdmins = { ...(fut.admins || {}) };
+      if (fut.admins && fut.admins[user.uid] && fut.adminId !== user.uid) {
+        delete updatedAdmins[user.uid];
+      }
+
+      console.log('Updated data:', { updatedMembers, updatedAdmins });
+
+      // Atualizar apenas os campos necessários
+      const updateData: any = {
+        members: updatedMembers
+      };
+      
+      // Só atualizar admins se houve mudança
+      if (fut.admins && fut.admins[user.uid] && fut.adminId !== user.uid) {
+        updateData.admins = updatedAdmins;
+      }
+
+      await update(futRef, updateData);
+
+      alert('Você saiu do fut com sucesso!');
+      
+      // Redirecionar para página inicial
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 1000);
+      
+      return true;
+    } catch (error) {
+      console.error('Error leaving fut:', error);
+      alert('Erro ao sair do fut');
+      return false;
+    }
+  }, [fut, user]);
+
   return {
-    // Funções de gerenciamento de fut
-    handleStartFut,
-    handleEndFut,
+    getRecurrenceText,
+    getNextFutDate,
     handleReleaseList,
+    handleConfirmPresence,
+    handleStartFut,
+    handleShareList,
+    handleGuestTypeSelect,
+    handleSearchUsers,
+    handleAddGuest,
+    handleAddSearchedUser,
+    handleAddRegisteredGuest,
+    handleSearchMembers,
+    handleEndFut,
     handleStartVoting,
     handleEndVoting,
-    handleFinalizeFut,
+    handleVote,
     handleGenerateRanking,
+    handleFinalizeFut,
+    handleDeleteFut,
+    handleDeleteData,
+    handleDeleteTeams,
+    handleShareTeams,
+    handleUpdateTeamWins,
+    handleUpdatePlayerStats,
+    handleGenerateImage,
     handleDownloadBolaCards,
-
-    // Funções de gerenciamento de convidados
-    handleAddGuest,
-    handleSearchUsers,
-
-    // Funções de gerenciamento de times
+    handleUpdateFutInfo,
+    handleSaveAnnouncement,
+    handleDeleteAnnouncement,
+    forceRecalculateAnnualRankings,
+    handleRemoveMember,
     handleTeamDraw,
     handleTeamSelect,
+    handleAddPlayerToTeam,
     handleRemovePlayerFromTeam,
     handleSaveTeams,
     handleRemoveFromConfirmed,
@@ -2321,5 +2363,8 @@ export function useFutActions(
     // Funções de configurações
     handleDeleteFutWithAuth,
     handleClearFutData,
+
+    // Função para sair do fut
+    handleLeaveFut,
   };
 }

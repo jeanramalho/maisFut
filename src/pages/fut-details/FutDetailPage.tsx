@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { ArrowLeft, Settings, Users, Calendar, MapPin, Crown, X, ChevronLeft, ChevronRight, Copy, Edit, Save, Share2 } from 'lucide-react';
+import { ArrowLeft, Settings, Users, Calendar, MapPin, Crown, X, ChevronLeft, ChevronRight, Copy, Edit, Save, Share2, LogOut } from 'lucide-react';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFutState } from '@/hooks/fut-details/useFutState';
@@ -21,15 +21,18 @@ const { id, tab } = router.query;
   // Hook de estado
   const futState = useFutState();
   
-  // Hook de ações
-  const futActions = useFutActions(futState.fut, futState.isAdmin || false, futState);
-  
   // Get user from auth context
   const { user } = useAuth();
+  
+  // Hook de ações
+  const futActions = useFutActions(futState.fut, futState.isAdmin || false, futState, user);
 
   // Ranking states
   const [showRankingCalendar, setShowRankingCalendar] = useState(false);
   const [showRankingShare, setShowRankingShare] = useState(false);
+  
+  // Leave fut states
+  const [showLeaveFutDropdown, setShowLeaveFutDropdown] = useState(false);
 
   // Ranking hook
   const rankingData = useRankings({ 
@@ -43,6 +46,21 @@ const { id, tab } = router.query;
       futState.setActiveTab(tab as any);
     }
   }, [tab, futState]);
+
+  // Fechar dropdown quando clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showLeaveFutDropdown) {
+        const target = event.target as Element;
+        if (!target.closest('.leave-fut-dropdown')) {
+          setShowLeaveFutDropdown(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showLeaveFutDropdown]);
 
   // Loading state
   if (futState.loading) {
@@ -81,14 +99,49 @@ return (
               <ArrowLeft size={24} />
             </button>
             <h1 className="text-white text-xl font-semibold">Detalhes do Fut</h1>
-            {isAdmin && (
-              <button
-                onClick={() => futState.setActiveTab('configuracoes')}
-                className="ml-auto text-gray-400 hover:text-secondary transition-colors"
-              >
-                <Settings size={24} />
-              </button>
-            )}
+            
+            {/* Botões do header */}
+            <div className="ml-auto flex items-center space-x-2">
+              {/* Botão de sair do fut - para jogadores comuns e admins não originais */}
+              {(!isAdmin || (isAdmin && futState.fut?.adminId !== user?.uid)) && (
+                <div className="relative leave-fut-dropdown">
+                  <button
+                    onClick={() => setShowLeaveFutDropdown(!showLeaveFutDropdown)}
+                    className="text-gray-400 hover:text-red-400 transition-colors"
+                  >
+                    <LogOut size={24} />
+                  </button>
+                  
+                  {/* Dropdown */}
+                  {showLeaveFutDropdown && (
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-primary-lighter rounded-lg shadow-lg border border-gray-600 z-50">
+                      <button
+                        onClick={() => {
+                          if (confirm('Tem certeza que deseja sair do fut? Esta ação não pode ser desfeita.')) {
+                            futActions.handleLeaveFut?.();
+                          }
+                          setShowLeaveFutDropdown(false);
+                        }}
+                        className="w-full text-left px-4 py-3 text-red-400 hover:bg-gray-700 flex items-center space-x-2"
+                      >
+                        <LogOut size={16} />
+                        <span>Sair do Fut</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* Botão de configurações - apenas para admins */}
+              {isAdmin && (
+                <button
+                  onClick={() => futState.setActiveTab('configuracoes')}
+                  className="text-gray-400 hover:text-secondary transition-colors"
+                >
+                  <Settings size={24} />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -1089,7 +1142,16 @@ return (
         {futState.activeTab === 'members' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-white text-lg font-semibold">Membros</h3>
+              <h3 className="text-white text-lg font-semibold">
+                Membros ({Object.entries(futState.members || {})
+                  .filter(([memberId, memberData]) => {
+                    // Exclude only avulso guests, but include cadastrado guests who became members
+                    if (memberData.isGuest && memberData.guestType === 'avulso') {
+                      return false; // Exclude avulso guests
+                    }
+                    return true; // Include everyone else (members and cadastrado guests)
+                  }).length})
+              </h3>
               {isAdmin && (
                 <button 
                   onClick={() => futState.setShowAddMemberModal(true)}
@@ -1831,15 +1893,7 @@ return (
             
             <div className="space-y-4">
               <button 
-                onClick={() => {
-                  futState.setEditName(futState.fut?.name || '');
-                  futState.setEditDescription(futState.fut?.description || '');
-                  futState.setEditTime(futState.fut?.time || '');
-                  futState.setEditLocation(futState.fut?.location || '');
-                  futState.setEditMaxVagas(futState.fut?.maxVagas?.toString() || '');
-                  futState.setEditPlayersPerTeam(futState.fut?.playersPerTeam?.toString() || '');
-                  futState.setShowEditInfoModal(true);
-                }}
+                onClick={() => futState.setActiveTab('info')}
                 className="w-full bg-secondary text-primary py-3 rounded-lg font-medium hover:bg-secondary-darker transition-colors"
               >
                 Editar Informações do Fut
@@ -1859,23 +1913,28 @@ return (
                 Gerenciar Avisos
               </button>
               
-              <div className="pt-4 border-t border-gray-700">
-                <button 
-                  onClick={() => futState.setShowClearDataModal(true)}
-                  className="w-full bg-orange-600 text-white py-3 rounded-lg font-medium hover:bg-orange-700 transition-colors"
-                >
-                  Limpar Dados do Fut
-                </button>
-              </div>
-              
-              <div className="pt-2">
-                <button 
-                  onClick={() => futState.setShowDeleteFutModal(true)}
-                  className="w-full bg-red-600 text-white py-3 rounded-lg font-medium hover:bg-red-700 transition-colors"
-                >
-                  Excluir Fut
-                </button>
-              </div>
+              {/* Botões apenas para admin original */}
+              {futState.fut?.adminId === user?.uid && (
+                <>
+                  <div className="pt-4 border-t border-gray-700">
+                    <button 
+                      onClick={() => futState.setShowClearDataModal(true)}
+                      className="w-full bg-orange-600 text-white py-3 rounded-lg font-medium hover:bg-orange-700 transition-colors"
+                    >
+                      Limpar Dados do Fut
+                    </button>
+                  </div>
+                  
+                  <div className="pt-2">
+                    <button 
+                      onClick={() => futState.setShowDeleteFutModal(true)}
+                      className="w-full bg-red-600 text-white py-3 rounded-lg font-medium hover:bg-red-700 transition-colors"
+                    >
+                      Excluir Fut
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -2767,7 +2826,7 @@ return (
         <ConfirmationModal
           isOpen={futState.showDeleteFutModal}
           onClose={() => futState.setShowDeleteFutModal(false)}
-          onConfirm={futActions.handleDeleteFutWithAuth || (() => Promise.resolve(false))}
+          onConfirm={futActions.handleDeleteFutWithAuth!}
           title="Excluir Fut"
           message="Esta ação irá excluir permanentemente todos os dados do fut. Esta ação não pode ser desfeita."
           confirmText="Excluir Fut"
@@ -2781,7 +2840,7 @@ return (
         <ConfirmationModal
           isOpen={futState.showClearDataModal}
           onClose={() => futState.setShowClearDataModal(false)}
-          onConfirm={futActions.handleClearFutData || (() => Promise.resolve(false))}
+          onConfirm={futActions.handleClearFutData!}
           title="Limpar Dados do Fut"
           message="Esta ação irá limpar todos os dados do fut (rankings, histórico, estatísticas), mas manterá a estrutura básica do fut."
           confirmText="Limpar Dados"

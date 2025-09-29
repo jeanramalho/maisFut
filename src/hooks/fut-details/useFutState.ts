@@ -191,14 +191,36 @@ export function useFutState() {
     if (!id || !user) return;
 
     const membersRef = ref(database, `futs/${id}/members`);
-    const unsubscribeMembers = onValue(membersRef, (snapshot) => {
+    const unsubscribeMembers = onValue(membersRef, async (snapshot) => {
       try {
         const membersData = snapshot.val() || {};
         console.log('Members listener triggered:', membersData);
         
-        // For the members tab, we only want actual members, not guests
-        console.log('Setting members from members listener (members only):', membersData);
-        setMembers(membersData);
+        // Carregar dados completos dos usuários
+        const membersWithData: Record<string, UserData> = {};
+        
+        for (const [memberId, memberValue] of Object.entries(membersData)) {
+          if (memberValue === true) {
+            // Se for apenas true, buscar dados do usuário
+            try {
+              const userRef = ref(database, `users/${memberId}`);
+              const userSnapshot = await get(userRef);
+              const userData = userSnapshot.val();
+              
+              if (userData) {
+                membersWithData[memberId] = userData;
+              }
+            } catch (error) {
+              console.error(`Error loading user data for ${memberId}:`, error);
+            }
+          } else if (typeof memberValue === 'object') {
+            // Se já tiver dados completos, usar diretamente
+            membersWithData[memberId] = memberValue as UserData;
+          }
+        }
+        
+        console.log('Setting members with complete data:', membersWithData);
+        setMembers(membersWithData);
       } catch (error) {
         console.error('Error loading members:', error);
         setMembers({});

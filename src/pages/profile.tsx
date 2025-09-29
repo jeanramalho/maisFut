@@ -8,6 +8,7 @@ import { auth, database, storage } from '@/lib/firebase';
 import { compressImage, validateImageSize } from '@/lib/imageCompression';
 import { ArrowLeft, Camera, Save, Trash2, User, Phone, Mail } from 'lucide-react';
 import Image from 'next/image';
+import ConfirmationModal from '@/components/ConfirmationModal';
 
 export default function ProfileSettings() {
   const { user, userData, logout } = useAuth();
@@ -134,13 +135,15 @@ export default function ProfileSettings() {
     }
   };
 
-  const handleDeleteAccount = async () => {
-    if (!user) return;
-
-    setLoading(true);
-    setError('');
+  const handleDeleteAccount = async (email: string, password: string): Promise<boolean> => {
+    if (!user) return false;
 
     try {
+      // Verificar login do usuário
+      const { signInWithEmailAndPassword } = await import('firebase/auth');
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const currentUser = userCredential.user;
+
       // Delete user's photo from storage
       if (userData?.photoURL) {
         try {
@@ -156,14 +159,18 @@ export default function ProfileSettings() {
       await remove(userRef);
 
       // Delete user from Firebase Auth
-      await deleteUser(user);
+      await deleteUser(currentUser);
 
       // Logout and redirect
       await logout();
-      router.push('/login');
+      
+      // Force redirect to login page
+      window.location.href = '/login';
+      
+      return true;
     } catch (error: any) {
-      setError(error.message);
-      setLoading(false);
+      console.error('Error deleting account:', error);
+      return false;
     }
   };
 
@@ -373,35 +380,18 @@ export default function ProfileSettings() {
         </form>
       </div>
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Account Modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
-          <div className="bg-primary-lighter rounded-lg p-6 w-full max-w-md border border-gray-700">
-            <h3 className="text-white text-xl font-semibold mb-4">
-              Confirmar Exclusão da Conta
-            </h3>
-            
-            <p className="text-gray-300 mb-6">
-              Tem certeza que deseja excluir sua conta? Esta ação não pode ser desfeita e todos os seus dados serão permanentemente removidos.
-            </p>
-
-            <div className="flex space-x-3">
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleDeleteAccount}
-                disabled={loading}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? 'Excluindo...' : 'Excluir Conta'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmationModal
+          isOpen={showDeleteConfirm}
+          onClose={() => setShowDeleteConfirm(false)}
+          onConfirm={handleDeleteAccount}
+          title="Excluir Conta"
+          message="Esta ação irá excluir permanentemente sua conta e todos os seus dados. Esta ação não pode ser desfeita."
+          confirmText="Excluir Conta"
+          confirmButtonColor="bg-red-600"
+          confirmButtonHoverColor="hover:bg-red-700"
+        />
       )}
     </div>
   );

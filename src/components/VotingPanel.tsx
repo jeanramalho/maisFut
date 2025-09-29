@@ -69,17 +69,37 @@ export default function VotingPanel({ futId, dateId, isAdmin, onClose }: VotingP
       if (data.present) {
         const playerIds = Object.keys(data.present);
         const playerPromises = playerIds.map(async (playerId) => {
-          const playerRef = ref(database, `users/${playerId}`);
-          const playerSnapshot = await get(playerRef);
-          const playerData = playerSnapshot.val();
-          return {
-            id: playerId,
-            name: playerData?.name || 'Jogador',
-            photoURL: playerData?.photoURL,
-          };
+          try {
+            const playerRef = ref(database, `users/${playerId}`);
+            const playerSnapshot = await get(playerRef);
+            const playerData = playerSnapshot.val();
+            
+            if (!playerData) {
+              console.warn(`No user data found for player ${playerId}`);
+              return {
+                id: playerId,
+                name: 'Jogador',
+                photoURL: null,
+              };
+            }
+            
+            return {
+              id: playerId,
+              name: playerData.name || 'Jogador',
+              photoURL: playerData.photoURL,
+            };
+          } catch (error) {
+            console.error(`Error loading player data for ${playerId}:`, error);
+            return {
+              id: playerId,
+              name: 'Jogador',
+              photoURL: null,
+            };
+          }
         });
 
         const playersData = await Promise.all(playerPromises);
+        console.log('Present players data:', playersData);
         setPresentPlayers(playersData);
       }
     });

@@ -75,7 +75,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (error: any) {
+      // Tratar erros específicos do Firebase Auth
+      let errorMessage = 'Erro ao fazer login';
+      
+      switch (error.code) {
+        case 'auth/user-not-found':
+          errorMessage = 'Email ou senha incorretos';
+          break;
+        case 'auth/wrong-password':
+          errorMessage = 'Email ou senha incorretos';
+          break;
+        case 'auth/invalid-email':
+          errorMessage = 'Email inválido';
+          break;
+        case 'auth/user-disabled':
+          errorMessage = 'Conta desabilitada';
+          break;
+        case 'auth/too-many-requests':
+          errorMessage = 'Muitas tentativas. Tente novamente mais tarde';
+          break;
+        case 'auth/network-request-failed':
+          errorMessage = 'Erro de conexão. Verifique sua internet';
+          break;
+        default:
+          errorMessage = 'Email ou senha incorretos';
+      }
+      
+      throw new Error(errorMessage);
+    }
   };
 
   const signup = async (email: string, password: string, name: string, phone?: string) => {
