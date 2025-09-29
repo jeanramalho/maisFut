@@ -1,12 +1,17 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { ArrowLeft, Settings, Users, Calendar, MapPin, Crown, X, ChevronLeft, ChevronRight, Copy, Edit, Save } from 'lucide-react';
+import { ArrowLeft, Settings, Users, Calendar, MapPin, Crown, X, ChevronLeft, ChevronRight, Copy, Edit, Save, Share2 } from 'lucide-react';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFutState } from '@/hooks/fut-details/useFutState';
 import { useFutActions } from '@/hooks/fut-details/useFutActions';
 import { TabType } from '@/hooks/fut-details/types';
 import Tabs from './components/Tabs';
+import RankingFilters from '@/components/RankingFilters';
+import RankingList from '@/components/RankingList';
+import RankingCalendar from '@/components/RankingCalendar';
+import RankingShare from '@/components/RankingShare';
+import { useRankings } from '@/hooks/useRankings';
 
 export default function FutDetailPage() {
 const router = useRouter();
@@ -20,6 +25,16 @@ const { id, tab } = router.query;
   
   // Get user from auth context
   const { user } = useAuth();
+
+  // Ranking states
+  const [showRankingCalendar, setShowRankingCalendar] = useState(false);
+  const [showRankingShare, setShowRankingShare] = useState(false);
+
+  // Ranking hook
+  const rankingData = useRankings({ 
+    futId: id as string, 
+    isAdmin: futState.isAdmin || false 
+  });
 
   // Navegar para aba específica se especificada na URL
   useEffect(() => {
@@ -1177,169 +1192,63 @@ return (
         )}
 
         {/* Ranking Tab */}
-        {futState.activeTab === 'ranking' && isAdmin && (
+        {futState.activeTab === 'ranking' && (
           <div className="space-y-6">
-            <h3 className="text-white text-lg font-semibold">Rankings</h3>
-            
-            {/* View Selector */}
-            <div className="flex space-x-2">
-              <button
-                onClick={() => futState.setRankingView('geral')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  futState.rankingView === 'geral'
-                    ? 'bg-secondary text-primary'
-                    : 'bg-gray-600 text-white hover:bg-gray-700'
-                }`}
-              >
-                Geral
-              </button>
-              <button
-                onClick={() => futState.setRankingView('rodada')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  futState.rankingView === 'rodada'
-                    ? 'bg-secondary text-primary'
-                    : 'bg-gray-600 text-white hover:bg-gray-700'
-                }`}
-              >
-                Rodada
-              </button>
-              <button
-                onClick={() => futState.setRankingView('fut')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  futState.rankingView === 'fut'
-                    ? 'bg-secondary text-primary'
-                    : 'bg-gray-600 text-white hover:bg-gray-700'
-                }`}
-              >
-                Por Fut
-              </button>
-            </div>
-
-            {/* Ranking Type Selector */}
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => futActions.handleGenerateRanking('pontuacao')}
-                className={`px-3 py-2 rounded text-sm font-medium text-center ${
-                  futState.rankingType === 'pontuacao'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-600 text-white hover:bg-gray-700'
-                }`}
-              >
-                Pontuação
-              </button>
-              <button
-                onClick={() => futActions.handleGenerateRanking('artilharia')}
-                className={`px-3 py-2 rounded text-sm font-medium text-center ${
-                  futState.rankingType === 'artilharia'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-600 text-white hover:bg-gray-700'
-                }`}
-              >
-                Artilharia
-              </button>
-              <button
-                onClick={() => futActions.handleGenerateRanking('assistencias')}
-                className={`px-3 py-2 rounded text-sm font-medium text-center ${
-                  futState.rankingType === 'assistencias'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-600 text-white hover:bg-gray-700'
-                }`}
-              >
-                Assistências
-              </button>
-              <button
-                onClick={() => futActions.handleGenerateRanking('vitorias')}
-                className={`px-3 py-2 rounded text-sm font-medium text-center ${
-                  futState.rankingType === 'vitorias'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-600 text-white hover:bg-gray-700'
-                }`}
-              >
-                Vitórias
-              </button>
-            </div>
-
-            {/* Fut History Selector (only for "Por Fut" view) */}
-            {futState.rankingView === 'fut' && (
-              <div className="space-y-3">
-                <h4 className="text-white font-medium">Selecionar Fut:</h4>
-                <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {futState.futHistory.map((futData) => (
-                    <button
-                      key={futData.id}
-                      onClick={() => {
-                        futState.setSelectedDate(futData.id);
-                        futActions.handleGenerateRanking(futState.rankingType);
-                      }}
-                      className={`w-full text-left p-3 rounded-lg border transition-colors ${
-                        futState.selectedDate === futData.id
-                          ? 'bg-secondary text-primary border-secondary'
-                          : 'bg-primary-lighter text-white border-gray-600 hover:bg-primary'
-                      }`}
-                    >
-                      <div className="font-medium">{futData.name || 'Fut'}</div>
-                      <div className="text-sm opacity-75">
-                        {new Date(futData.date).toLocaleDateString('pt-BR')}
-                      </div>
-                    </button>
-                  ))}
+            <div className="flex items-center justify-between">
+              <h3 className="text-white text-lg font-semibold">Rankings</h3>
+              {isAdmin && (
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setShowRankingCalendar(true)}
+                    className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 transition-colors flex items-center space-x-1"
+                  >
+                    <Calendar size={14} />
+                    <span>Calendário</span>
+                  </button>
+                  <button
+                    onClick={() => setShowRankingShare(true)}
+                    className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 transition-colors flex items-center space-x-1"
+                  >
+                    <Share2 size={14} />
+                    <span>Compartilhar</span>
+                  </button>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+
+            {/* Ranking Filters */}
+            <RankingFilters
+              period={rankingData.period}
+              type={rankingData.type}
+              onPeriodChange={rankingData.handlePeriodChange}
+              onTypeChange={rankingData.handleTypeChange}
+              isAdmin={isAdmin}
+            />
 
             {/* Ranking Display */}
-            {futState.ranking && futState.ranking.length > 0 && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-white font-semibold">
-                    {futState.rankingView === 'geral' ? 'Ranking Geral' : 
-                     futState.rankingView === 'rodada' ? 'Ranking da Rodada' : 
-                     'Ranking do Fut'}
-                  </h4>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={futActions.handleGenerateImage}
-                      className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 transition-colors"
-                    >
-                      Gerar Imagem
-                    </button>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-white font-semibold">
+                  Ranking {rankingData.period === 'anual' ? 'Anual' : 'Rodada'} - {
+                    rankingData.type === 'pontuacao' ? 'Pontuação' :
+                    rankingData.type === 'artilharia' ? 'Artilharia' :
+                    rankingData.type === 'assistencias' ? 'Assistências' :
+                    'Vitórias'
+                  }
+                </h4>
+                {rankingData.selectedDate && (
+                  <div className="text-gray-400 text-sm">
+                    {new Date(rankingData.selectedDate).toLocaleDateString('pt-BR')}
                   </div>
-                </div>
-                
-                <div className="space-y-2">
-                  {futState.ranking.slice(0, 10).map((item: any, index: number) => {
-                    const position = index + 1;
-                    const medal = position === 1 ? '🥇' : position === 2 ? '🥈' : position === 3 ? '🥉' : '';
-                    
-                    return (
-                      <div key={item.playerId} className="bg-primary-lighter rounded-lg p-3 flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <div className="text-2xl">{medal}</div>
-                          <div>
-                            <div className="text-white font-medium">{item.name}</div>
-                            <div className="text-gray-400 text-sm">#{position}</div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-green-400 font-bold text-lg">
-                            {futState.rankingType === 'pontuacao' ? item.score :
-                             futState.rankingType === 'artilharia' ? item.goals :
-                             futState.rankingType === 'assistencias' ? item.assists :
-                             item.wins}
-                          </div>
-                          <div className="text-gray-400 text-sm">
-                            {futState.rankingType === 'pontuacao' ? 'pts' :
-                             futState.rankingType === 'artilharia' ? 'gols' :
-                             futState.rankingType === 'assistencias' ? 'assist' :
-                             'vitórias'}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                )}
               </div>
-            )}
+              
+              <RankingList
+                rankings={rankingData.rankings}
+                type={rankingData.type}
+                loading={rankingData.loading}
+              />
+            </div>
           </div>
         )}
 
@@ -2829,6 +2738,26 @@ return (
     </div>
   </div>
 )}
+
+      {/* Ranking Calendar Modal */}
+      {showRankingCalendar && (
+        <RankingCalendar
+          availableDates={rankingData.availableDates}
+          onDateSelect={rankingData.handleDateSelect}
+          onClose={() => setShowRankingCalendar(false)}
+        />
+      )}
+
+      {/* Ranking Share Modal */}
+      {showRankingShare && (
+        <RankingShare
+          rankings={rankingData.rankings}
+          type={rankingData.type}
+          period={rankingData.period}
+          futName={futState.fut?.name || 'Fut'}
+          onClose={() => setShowRankingShare(false)}
+        />
+      )}
 </div>
 );
 }

@@ -134,6 +134,9 @@ export const onOccurrenceClose = functions.database
 
         await Promise.all(updatePromises);
 
+        // Generate and save rankings for this fut
+        await generateAndSaveRankings(futId, dateId, occurrence, playerStats);
+
         // Enable voting
         await occurrenceRef.child('voting').update({
           enabled: true,
@@ -301,3 +304,174 @@ export const createMonthlyOccurrences = functions.pubsub
       console.error('Error creating monthly occurrences:', error);
     }
   });
+
+// Helper function to generate and save rankings
+async function generateAndSaveRankings(futId: string, dateId: string, occurrence: any, playerStats: Record<string, { goals: number; assists: number }>) {
+  try {
+    // Get fut members to get player names
+    const futSnapshot = await admin.database().ref(`/futs/${futId}`).once('value');
+    const fut = futSnapshot.val();
+    
+    if (!fut || !fut.members) {
+      console.log('Fut or members not found');
+      return;
+    }
+
+    // Get voting results for performance calculation
+    const votingResult = occurrence.votingResult || {};
+    const bolaCheiaCounts = votingResult.bolaCheiaCounts || {};
+    const bolaMurchaCounts = votingResult.bolaMurchaCounts || {};
+
+    // Calculate performance scores (votes + goals*10 + assists*5)
+    const performanceScores: Record<string, number> = {};
+    Object.entries(playerStats).forEach(([playerId, stats]) => {
+      const bolaCheiaVotes = bolaCheiaCounts[playerId] || 0;
+      const bolaMurchaVotes = bolaMurchaCounts[playerId] || 0;
+      const totalVotes = bolaCheiaVotes + bolaMurchaVotes;
+      
+      // Each vote is worth 20 points, goals worth 10 points, assists worth 5 points
+      performanceScores[playerId] = (totalVotes * 20) + (stats.goals * 10) + (stats.assists * 5);
+    });
+
+    // Generate rankings for each type
+    const rankings = {
+      pontuacao: generateRankingByType(playerStats, fut.members, 'pontuacao', performanceScores),
+      artilharia: generateRankingByType(playerStats, fut.members, 'artilharia', performanceScores),
+      assistencias: generateRankingByType(playerStats, fut.members, 'assistencias', performanceScores),
+    };
+
+    // Determine fut number for this date (if multiple futs on same day)
+    const futRankingsRef = admin.database().ref(`/futs/${futId}/rankings/${dateId}`);
+    const existingRankingsSnapshot = await futRankingsRef.once('value');
+    const existingRankings = existingRankingsSnapshot.val() || {};
+    const futNumber = Object.keys(existingRankings).length + 1;
+
+    // Save fut ranking
+    const futRanking = {
+      date: dateId,
+      futNumber: futNumber,
+      rankings: rankings,
+      createdAt: admin.database.ServerValue.TIMESTAMP,
+    };
+
+    await futRankingsRef.child(`fut-${futNumber}`).set(futRanking);
+
+    // Update annual rankings
+    const year = new Date(dateId).getFullYear();
+    await updateAnnualRankings(futId, year, rankings);
+
+    console.log(`Rankings saved for fut ${futId}, date ${dateId}, fut-${futNumber}`);
+  } catch (error) {
+    console.error('Error generating and saving rankings:', error);
+  }
+}
+
+// Helper function to generate ranking by type
+function generateRankingByType(
+  playerStats: Record<string, { goals: number; assists: number }>,
+  members: Record<string, any>,
+  type: 'pontuacao' | 'artilharia' | 'assistencias',
+  performanceScores: Record<string, number>
+): any[] {
+  return Object.entries(playerStats)
+    .filter(([playerId]) => {
+      const member = members[playerId];
+      return member && !member.isGuest && playerId !== 'VAGA';
+    })
+    .map(([playerId, stats]) => {
+      const member = members[playerId];
+      let score = 0;
+      
+      if (type === 'pontuacao') {
+        score = performanceScores[playerId] || 0;
+      } else if (type === 'artilharia') {
+        score = stats.goals;
+      } else if (type === 'assistencias') {
+        score = stats.assists;
+      }
+
+      return {
+        playerId,
+        name: member?.name || 'Jogador',
+        score,
+        goals: stats.goals,
+        assists: stats.assists,
+      };
+    })
+    .sort((a, b) => b.score - a.score);
+}
+
+// Helper function to update annual rankings
+async function updateAnnualRankings(futId: string, year: number, newRankings: any) {
+  try {
+    const annualRankingsRef = admin.database().ref(`/futs/${futId}/rankings-anual/${year}`);
+    const annualSnapshot = await annualRankingsRef.once('value');
+    const currentAnnual = annualSnapshot.val() || {
+      rankings: {
+        pontuacao: [],
+        artilharia: [],
+        assistencias: [],
+      }
+    };
+
+    // Merge new rankings with existing annual rankings
+    const updatedRankings = {
+      pontuacao: mergeRankings(currentAnnual.rankings.pontuacao || [], newRankings.pontuacao),
+      artilharia: mergeRankings(currentAnnual.rankings.artilharia || [], newRankings.artilharia),
+      assistencias: mergeRankings(currentAnnual.rankings.assistencias || [], newRankings.assistencias),
+    };
+
+    await annualRankingsRef.set({
+      year,
+      rankings: updatedRankings,
+      lastUpdated: admin.database.ServerValue.TIMESTAMP,
+    });
+
+    console.log(`Annual rankings updated for fut ${futId}, year ${year}`);
+  } catch (error) {
+    console.error('Error updating annual rankings:', error);
+  }
+}
+
+// Helper function to merge rankings
+function mergeRankings(existingRankings: any[], newRankings: any[]): any[] {
+  const mergedStats: Record<string, { goals: number; assists: number; score: number }> = {};
+
+  // Add existing stats
+  existingRankings.forEach(player => {
+    mergedStats[player.playerId] = {
+      goals: player.goals || 0,
+      assists: player.assists || 0,
+      score: player.score || 0,
+    };
+  });
+
+  // Add new stats
+  newRankings.forEach(player => {
+    if (mergedStats[player.playerId]) {
+      mergedStats[player.playerId].goals += player.goals || 0;
+      mergedStats[player.playerId].assists += player.assists || 0;
+      mergedStats[player.playerId].score += player.score || 0;
+    } else {
+      mergedStats[player.playerId] = {
+        goals: player.goals || 0,
+        assists: player.assists || 0,
+        score: player.score || 0,
+      };
+    }
+  });
+
+  // Convert back to ranking array and sort
+  return Object.entries(mergedStats)
+    .map(([playerId, stats]) => {
+      const player = newRankings.find(p => p.playerId === playerId) || existingRankings.find(p => p.playerId === playerId);
+      return {
+        playerId,
+        name: player?.name || 'Jogador',
+        score: stats.score,
+        goals: stats.goals,
+        assists: stats.assists,
+      };
+    })
+    .sort((a, b) => b.score - a.score);
+}

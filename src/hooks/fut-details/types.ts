@@ -37,3 +37,37 @@ export type TabType = 'fut' | 'times' | 'data' | 'info' | 'members' | 'ranking' 
 export type RankingType = 'pontuacao' | 'artilharia' | 'assistencias' | 'vitorias';
 
 export type RankingView = 'geral' | 'rodada' | 'fut';
+
+export type RankingPeriod = 'rodada' | 'anual';
+
+export interface RankingEntry {
+  playerId: string;
+  name: string;
+  score: number;
+  goals: number;
+  assists: number;
+  wins?: number;
+}
+
+export interface FutRanking {
+  date: string; // YYYY-MM-DD format
+  futNumber: number; // 1, 2, 3... for multiple futs on same day
+  rankings: {
+    pontuacao: RankingEntry[];
+    artilharia: RankingEntry[];
+    assistencias: RankingEntry[];
+    vitorias?: RankingEntry[];
+  };
+  createdAt: number;
+}
+
+export interface AnnualRanking {
+  year: number;
+  rankings: {
+    pontuacao: RankingEntry[];
+    artilharia: RankingEntry[];
+    assistencias: RankingEntry[];
+    vitorias?: RankingEntry[];
+  };
+  lastUpdated: number;
+}
