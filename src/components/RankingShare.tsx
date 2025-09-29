@@ -183,7 +183,7 @@ export default function RankingShare({ rankings, type, period, futName, onClose 
               )}
             </button>
             
-            {navigator.share && (
+            {'share' in navigator && (
               <button
                 onClick={handleShare}
                 className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 bg-secondary text-primary rounded-lg text-sm font-medium hover:bg-secondary/80 transition-colors"
