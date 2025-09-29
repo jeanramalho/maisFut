@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import { ref, get, set, push, remove, update } from 'firebase/database';
 import { database } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Fut, RankingType } from './types';
+import { Fut, RankingType, RankingEntry, FutRanking, AnnualRanking } from './types';
 
 export function useFutActions(
   fut: Fut | null,
@@ -329,6 +329,9 @@ export function useFutActions(
           .sort((a, b) => b.score - a.score);
         
         futState.setRanking(sortedPlayers);
+        
+        // Save rankings to Firebase
+        await saveRankingsToFirebase(sortedPlayers, type);
       }
       futState.setShowRanking(true);
       futState.setLoadingRanking(false);
@@ -338,6 +341,174 @@ export function useFutActions(
       futState.setLoadingRanking(false);
     }
   }, [fut, isAdmin, futState]);
+
+  // Helper function to generate ranking by type
+  const generateRankingByType = useCallback(async (type: RankingType): Promise<RankingEntry[]> => {
+    if (!futState.members) return [];
+
+    // Calculate average votes for each player
+    const playerAverages: Record<string, number> = {};
+    
+    Object.entries(futState.userVotes || {}).forEach(([userId, votes]: [string, any]) => {
+      Object.entries(votes).forEach(([playerId, rating]: [string, any]) => {
+        if (!playerAverages[playerId]) {
+          playerAverages[playerId] = 0;
+        }
+        playerAverages[playerId] += rating;
+      });
+    });
+
+    const playerCounts: Record<string, number> = {};
+    Object.values(futState.userVotes || {}).forEach((votes: any) => {
+      Object.keys(votes).forEach(playerId => {
+        playerCounts[playerId] = (playerCounts[playerId] || 0) + 1;
+      });
+    });
+
+    return Object.entries(playerAverages)
+      .filter(([playerId]) => !futState.members[playerId]?.isGuest && futState.members[playerId] && playerId !== 'VAGA')
+      .map(([playerId, totalVotes]) => {
+        const count = playerCounts[playerId] || 1;
+        const average = totalVotes / count;
+        const player = futState.members[playerId];
+        const stats = futState.playerStats[playerId] || { goals: 0, assists: 0 };
+        
+        let score = 0;
+        if (type === 'pontuacao') {
+          // Cada estrela vale 20 pontos, gols valem 10 pontos, assistências valem 5 pontos
+          score = average * 20 + stats.goals * 10 + stats.assists * 5;
+        } else if (type === 'artilharia') {
+          score = stats.goals;
+        } else if (type === 'assistencias') {
+          score = stats.assists;
+        }
+        
+        return {
+          playerId,
+          name: player?.name || 'Jogador',
+          score,
+          goals: stats.goals,
+          assists: stats.assists,
+        };
+      })
+      .sort((a, b) => b.score - a.score);
+  }, [futState]);
+
+  // Helper function to merge rankings
+  const mergeRankings = useCallback((existingRankings: RankingEntry[], newRankings: RankingEntry[]): RankingEntry[] => {
+    const mergedStats: Record<string, { goals: number; assists: number; score: number }> = {};
+
+    // Add existing stats
+    existingRankings.forEach(player => {
+      mergedStats[player.playerId] = {
+        goals: player.goals || 0,
+        assists: player.assists || 0,
+        score: player.score || 0,
+      };
+    });
+
+    // Add new stats
+    newRankings.forEach(player => {
+      if (mergedStats[player.playerId]) {
+        mergedStats[player.playerId].goals += player.goals || 0;
+        mergedStats[player.playerId].assists += player.assists || 0;
+        mergedStats[player.playerId].score += player.score || 0;
+      } else {
+        mergedStats[player.playerId] = {
+          goals: player.goals || 0,
+          assists: player.assists || 0,
+          score: player.score || 0,
+        };
+      }
+    });
+
+    // Convert back to ranking array and sort
+    return Object.entries(mergedStats)
+      .map(([playerId, stats]) => {
+        const player = newRankings.find(p => p.playerId === playerId) || existingRankings.find(p => p.playerId === playerId);
+        return {
+          playerId,
+          name: player?.name || 'Jogador',
+          score: stats.score,
+          goals: stats.goals,
+          assists: stats.assists,
+        };
+      })
+      .sort((a, b) => b.score - a.score);
+  }, []);
+
+  // Helper function to update annual rankings
+  const updateAnnualRankings = useCallback(async (futId: string, year: number, newRankings: any) => {
+    try {
+      const annualRankingsRef = ref(database, `futs/${futId}/rankings-anual/${year}`);
+      const annualSnapshot = await get(annualRankingsRef);
+      const currentAnnual = annualSnapshot.val() || {
+        rankings: {
+          pontuacao: [],
+          artilharia: [],
+          assistencias: [],
+        }
+      };
+
+      // Merge new rankings with existing annual rankings
+      const updatedRankings = {
+        pontuacao: mergeRankings(currentAnnual.rankings.pontuacao || [], newRankings.pontuacao),
+        artilharia: mergeRankings(currentAnnual.rankings.artilharia || [], newRankings.artilharia),
+        assistencias: mergeRankings(currentAnnual.rankings.assistencias || [], newRankings.assistencias),
+      };
+
+      await set(annualRankingsRef, {
+        year,
+        rankings: updatedRankings,
+        lastUpdated: Date.now(),
+      });
+
+      console.log(`Annual rankings updated for fut ${futId}, year ${year}`);
+    } catch (error) {
+      console.error('Error updating annual rankings:', error);
+    }
+  }, [mergeRankings]);
+
+  // Função para salvar rankings no Firebase
+  const saveRankingsToFirebase = useCallback(async (rankings: RankingEntry[], type: RankingType) => {
+    if (!fut || !isAdmin) return;
+
+    try {
+      // Get current date
+      const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+      
+      // Generate all ranking types
+      const allRankings = {
+        pontuacao: await generateRankingByType('pontuacao'),
+        artilharia: await generateRankingByType('artilharia'),
+        assistencias: await generateRankingByType('assistencias'),
+      };
+
+      // Determine fut number for this date (if multiple futs on same day)
+      const futRankingsRef = ref(database, `futs/${fut.id}/rankings/${currentDate}`);
+      const existingRankingsSnapshot = await get(futRankingsRef);
+      const existingRankings = existingRankingsSnapshot.val() || {};
+      const futNumber = Object.keys(existingRankings).length + 1;
+
+      // Save fut ranking
+      const futRanking: FutRanking = {
+        date: currentDate,
+        futNumber: futNumber,
+        rankings: allRankings,
+        createdAt: Date.now(),
+      };
+
+      await set(ref(database, `futs/${fut.id}/rankings/${currentDate}/fut-${futNumber}`), futRanking);
+
+      // Update annual rankings
+      const year = new Date(currentDate).getFullYear();
+      await updateAnnualRankings(fut.id, year, allRankings);
+
+      console.log(`Rankings saved for fut ${fut.id}, date ${currentDate}, fut-${futNumber}`);
+    } catch (error) {
+      console.error('Error saving rankings to Firebase:', error);
+    }
+  }, [fut, isAdmin, generateRankingByType, updateAnnualRankings]);
 
   // Função para finalizar fut
   const handleFinalizeFut = useCallback(async () => {
