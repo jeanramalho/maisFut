@@ -76,8 +76,8 @@ export function useRankings({ futId, isAdmin }: UseRankingsProps) {
             });
           });
           
-          if (latestFutRanking && latestFutRanking.rankings) {
-            const rankingData = latestFutRanking.rankings[type] || [];
+          if (latestFutRanking && latestFutRanking.rankings && typeof latestFutRanking.rankings === 'object') {
+            const rankingData = (latestFutRanking.rankings as any)[type] || [];
             setRankings(rankingData);
           } else {
             setRankings([]);
