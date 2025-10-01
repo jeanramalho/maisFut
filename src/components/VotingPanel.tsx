@@ -151,7 +151,7 @@ export default function VotingPanel({ futId, dateId, isAdmin, onClose }: VotingP
 
   const getPerformanceScore = (playerId: string) => {
     const playerStats = stats[playerId] || { goals: 0, assists: 0 };
-    return playerStats.goals * 2 + playerStats.assists;
+    return Math.round(playerStats.goals * 2 + playerStats.assists);
   };
 
   const canVote = voting.open && !hasVoted && user && presentPlayers.some(p => p.id === user.uid);

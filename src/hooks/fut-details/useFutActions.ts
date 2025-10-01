@@ -316,7 +316,7 @@ export function useFutActions(
             let score = 0;
             if (type === 'pontuacao') {
               // Cada estrela vale 20 pontos, gols valem 10 pontos, assistências valem 5 pontos
-              score = average * 20 + stats.goals * 10 + stats.assists * 5;
+              score = Math.round(average * 20 + stats.goals * 10 + stats.assists * 5);
             } else if (type === 'artilharia') {
               score = stats.goals;
             } else if (type === 'assistencias') {
@@ -388,7 +388,7 @@ export function useFutActions(
         let score = 0;
         if (type === 'pontuacao') {
           // Cada estrela vale 20 pontos, gols valem 10 pontos, assistências valem 5 pontos
-          score = average * 20 + stats.goals * 10 + stats.assists * 5;
+          score = Math.round(average * 20 + stats.goals * 10 + stats.assists * 5);
         } else if (type === 'artilharia') {
           score = stats.goals;
         } else if (type === 'assistencias') {
@@ -568,7 +568,7 @@ export function useFutActions(
           .map(([playerId, stats]) => ({
             playerId,
             name: playerNames[playerId] || 'Jogador',
-            score: stats.score,
+            score: Math.round(stats.score),
             goals: stats.goals,
             assists: stats.assists,
           }))

@@ -186,7 +186,7 @@ export const onVotingClose = functions.database
         const performanceScores: Record<string, number> = {};
         if (occurrence.stats) {
           Object.entries(occurrence.stats).forEach(([playerId, stats]: [string, any]) => {
-            performanceScores[playerId] = (stats.goals * 2) + (stats.assists * 1);
+            performanceScores[playerId] = Math.round((stats.goals * 2) + (stats.assists * 1));
           });
         }
 
@@ -330,7 +330,7 @@ async function generateAndSaveRankings(futId: string, dateId: string, occurrence
       const totalVotes = bolaCheiaVotes + bolaMurchaVotes;
       
       // Each vote is worth 20 points, goals worth 10 points, assists worth 5 points
-      performanceScores[playerId] = (totalVotes * 20) + (stats.goals * 10) + (stats.assists * 5);
+      performanceScores[playerId] = Math.round((totalVotes * 20) + (stats.goals * 10) + (stats.assists * 5));
     });
 
     // Generate rankings for each type
@@ -468,7 +468,7 @@ function mergeRankings(existingRankings: any[], newRankings: any[]): any[] {
       return {
         playerId,
         name: player?.name || 'Jogador',
-        score: stats.score,
+        score: Math.round(stats.score),
         goals: stats.goals,
         assists: stats.assists,
       };
