@@ -51,7 +51,7 @@ export function useRankings({ futId, isAdmin }: UseRankingsProps) {
           const data = snapshot.val();
           
           // Find the latest fut across all dates
-          let latestFutRanking: FutRanking | null = null;
+          let latestFutRanking: any = null;
           let latestDate = '';
           let latestFutNumber = 0;
           let latestCreatedAt = 0;
@@ -76,8 +76,8 @@ export function useRankings({ futId, isAdmin }: UseRankingsProps) {
             });
           });
           
-          if (latestFutRanking && latestFutRanking.rankings && typeof latestFutRanking.rankings === 'object') {
-            const rankingData = (latestFutRanking.rankings as any)[type] || [];
+          if (latestFutRanking && latestFutRanking.rankings) {
+            const rankingData = latestFutRanking.rankings[type] || [];
             setRankings(rankingData);
           } else {
             setRankings([]);
