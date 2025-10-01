@@ -140,7 +140,19 @@ export function useFutState() {
         setFutStarted(futData.futStarted);
       }
       if (futData.teams) {
-        setTeams(futData.teams);
+        // Verificar se há dados no localStorage primeiro
+        try {
+          const localTeams = localStorage.getItem(`fut_teams_${id}`);
+          if (localTeams) {
+            const parsedTeams = JSON.parse(localTeams);
+            setTeams(parsedTeams);
+          } else {
+            setTeams(futData.teams);
+          }
+        } catch (error) {
+          console.error('Error loading teams from localStorage:', error);
+          setTeams(futData.teams);
+        }
       }
       if (futData.teamStats) {
         setTeamStats(futData.teamStats);

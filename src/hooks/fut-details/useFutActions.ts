@@ -1196,11 +1196,11 @@ export function useFutActions(
     futState.setShowTeamSelectModal(false);
     futState.setSelectedTeam('Time 1');
     
-    // Save teams to Firebase
+    // Save teams to localStorage instead of Firebase
     try {
-      await set(ref(database, `futs/${fut?.id}/teams`), newTeams);
+      localStorage.setItem(`fut_teams_${fut?.id}`, JSON.stringify(newTeams));
     } catch (error) {
-      console.error('Error saving teams:', error);
+      console.error('Error saving teams to localStorage:', error);
     }
     
     // Initialize team stats
@@ -1243,11 +1243,11 @@ export function useFutActions(
         }
       });
       
-      // Save to Firebase
+      // Save to localStorage instead of Firebase
       try {
-        set(ref(database, `futs/${fut.id}/teams`), newTeams);
+        localStorage.setItem(`fut_teams_${fut.id}`, JSON.stringify(newTeams));
       } catch (error) {
-        console.error('Error saving teams:', error);
+        console.error('Error saving teams to localStorage:', error);
       }
       
       return newTeams;
@@ -1271,11 +1271,11 @@ export function useFutActions(
         }
       });
       
-      // Save to Firebase
+      // Save to localStorage instead of Firebase
       try {
-        set(ref(database, `futs/${fut.id}/teams`), newTeams);
+        localStorage.setItem(`fut_teams_${fut.id}`, JSON.stringify(newTeams));
       } catch (error) {
-        console.error('Error saving teams:', error);
+        console.error('Error saving teams to localStorage:', error);
       }
       
       return newTeams;
@@ -1287,7 +1287,12 @@ export function useFutActions(
     if (!fut || !isAdmin) return;
 
     try {
+      // Salvar no Firebase
       await set(ref(database, `futs/${fut.id}/teams`), futState.teams);
+      
+      // Limpar localStorage após salvar no Firebase
+      localStorage.removeItem(`fut_teams_${fut.id}`);
+      
       alert('Times salvos com sucesso!');
     } catch (error) {
       console.error('Error saving teams:', error);
