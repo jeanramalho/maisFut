@@ -213,8 +213,10 @@ export function useFutActions(
       await update(futRef, {
         votingOpen: true,
         votingStartedAt: new Date().toISOString(),
+        userVotes: {}, // Limpar votos anteriores ao iniciar nova votação
       });
       futState.setVotingOpen(true);
+      futState.setUserVotes({}); // Limpar votos no estado local também
     } catch (error) {
       console.error('Error starting voting:', error);
       alert('Erro ao iniciar votação');

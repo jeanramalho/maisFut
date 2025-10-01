@@ -55,7 +55,7 @@ export default function RankingList({ rankings, type, loading = false }: Ranking
             </div>
             <div className="text-right">
               <div className="text-green-400 font-bold text-lg">
-                {type === 'pontuacao' ? item.score :
+                {type === 'pontuacao' ? Math.round(item.score) :
                  type === 'artilharia' ? item.goals :
                  type === 'assistencias' ? item.assists :
                  item.wins || 0}

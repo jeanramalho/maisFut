@@ -46,7 +46,7 @@ export default function RankingShare({ rankings, type, period, futName, onClose 
     
     rankings.slice(0, 10).forEach((player, index) => {
       const position = index + 1;
-      const score = type === 'pontuacao' ? player.score :
+      const score = type === 'pontuacao' ? Math.round(player.score) :
                    type === 'artilharia' ? player.goals :
                    type === 'assistencias' ? player.assists :
                    player.wins || 0;

@@ -1626,7 +1626,7 @@ return (
                                   <div>
                                     <div className="text-white text-sm font-medium">{item.name}</div>
                                     <div className="text-gray-400 text-xs">
-                                      {futState.rankingType === 'pontuacao' ? `${item.score} pts` :
+                                      {futState.rankingType === 'pontuacao' ? `${Math.round(item.score)} pts` :
                                        futState.rankingType === 'artilharia' ? `${item.goals} gols` :
                                        `${item.assists} assistências`}
                                     </div>
