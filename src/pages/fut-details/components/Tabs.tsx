@@ -61,17 +61,18 @@ export default function Tabs({ activeTab, setActiveTab, isAdmin, votingOpen, fut
                        };
                        
                        return (
-                         <button
-                           key={tab}
-                           onClick={() => setActiveTab(tab)}
-                           className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
-                             activeTab === tab
-                               ? 'bg-primary text-secondary'
-                               : 'text-gray-400 hover:text-white'
-                           }`}
-                         >
-                           {getTabName(tab)}
-                         </button>
+                        <button
+                          key={tab}
+                          onClick={() => setActiveTab(tab)}
+                          className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
+                            activeTab === tab
+                              ? 'bg-primary text-secondary'
+                              : 'text-gray-400 hover:text-white'
+                          }`}
+                          translate="no"
+                        >
+                          {getTabName(tab)}
+                        </button>
                        );
                      })}
           </div>

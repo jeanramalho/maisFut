@@ -1225,6 +1225,7 @@ export function useFutActions(
   const handleAddPlayerToTeam = useCallback(async (playerId: string, teamName: string) => {
     if (!fut || !isAdmin) return;
 
+    // Primeiro atualiza o estado local
     futState.setTeams((prev: any) => {
       const newTeams = { ...prev };
       
@@ -1243,21 +1244,42 @@ export function useFutActions(
         }
       });
       
-      // Save to Firebase
-      try {
-        set(ref(database, `futs/${fut.id}/teams`), newTeams);
-      } catch (error) {
-        console.error('Error saving teams:', error);
-      }
-      
       return newTeams;
     });
+
+    // Depois salva no Firebase de forma assíncrona
+    try {
+      const currentTeams = futState.teams;
+      const newTeams = { ...currentTeams };
+      
+      // Remove player from all teams first
+      Object.keys(newTeams).forEach(team => {
+        newTeams[team] = newTeams[team].filter((id: any) => id !== playerId);
+      });
+      
+      // Add player to selected team
+      newTeams[teamName] = [...newTeams[teamName], playerId];
+      
+      // Ensure all teams exist even if empty (to prevent Firebase from removing them)
+      Object.keys(newTeams).forEach(team => {
+        if (!newTeams[team]) {
+          newTeams[team] = [];
+        }
+      });
+      
+      await set(ref(database, `futs/${fut.id}/teams`), newTeams);
+    } catch (error) {
+      console.error('Error saving teams:', error);
+      // Revert local state if Firebase save fails
+      futState.setTeams(futState.teams);
+    }
   }, [fut, isAdmin, futState]);
 
   // Função para remover jogador do time
   const handleRemovePlayerFromTeam = useCallback(async (playerId: string, teamName: string) => {
     if (!fut || !isAdmin) return;
 
+    // Primeiro atualiza o estado local
     futState.setTeams((prev: any) => {
       const newTeams = {
         ...prev,
@@ -1271,15 +1293,30 @@ export function useFutActions(
         }
       });
       
-      // Save to Firebase
-      try {
-        set(ref(database, `futs/${fut.id}/teams`), newTeams);
-      } catch (error) {
-        console.error('Error saving teams:', error);
-      }
-      
       return newTeams;
     });
+
+    // Depois salva no Firebase de forma assíncrona
+    try {
+      const currentTeams = futState.teams;
+      const newTeams = {
+        ...currentTeams,
+        [teamName]: currentTeams[teamName].filter((id: any) => id !== playerId)
+      };
+      
+      // Ensure all teams exist even if empty (to prevent Firebase from removing them)
+      Object.keys(newTeams).forEach(team => {
+        if (!newTeams[team]) {
+          newTeams[team] = [];
+        }
+      });
+      
+      await set(ref(database, `futs/${fut.id}/teams`), newTeams);
+    } catch (error) {
+      console.error('Error saving teams:', error);
+      // Revert local state if Firebase save fails
+      futState.setTeams(futState.teams);
+    }
   }, [fut, isAdmin, futState]);
 
   // Função para salvar times

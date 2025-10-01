@@ -339,6 +339,7 @@ return (
                               ? 'bg-green-700 text-white' 
                               : 'bg-green-600 text-black hover:bg-green-700'
                           }`}
+                          translate="no"
                         >
                           To Dentro
                         </button>
@@ -349,6 +350,7 @@ return (
                               ? 'bg-red-700 text-white' 
                               : 'bg-red-600 text-black hover:bg-red-700'
                           }`}
+                          translate="no"
                         >
                           To Fora
                         </button>

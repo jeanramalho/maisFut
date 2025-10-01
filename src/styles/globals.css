@@ -92,3 +92,16 @@ a {
 .tabs-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #9ca3af;
 }
+
+/* Bloquear tradução automática */
+.no-translate {
+  -webkit-translate: no;
+  -moz-translate: no;
+  -ms-translate: no;
+  translate: no;
+}
+
+/* Aplicar bloqueio de tradução em elementos específicos */
+button, .tab-button, .action-button {
+  translate: no;
+}
