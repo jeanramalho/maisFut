@@ -1568,6 +1568,28 @@ export function useFutActions(
         updatedAt: new Date().toISOString()
       };
 
+      // Atualizar recorrência apenas para futs mensais
+      if (fut.type === 'mensal') {
+        const dayValue = Number(futState.editRecurrenceDay);
+        // Validação: dia válido conforme tipo
+        if (futState.editRecurrenceKind === 'weekly') {
+          if (isNaN(dayValue) || dayValue < 0 || dayValue > 6) {
+            alert('Selecione um dia da semana válido (0 a 6).');
+            return;
+          }
+        } else {
+          if (isNaN(dayValue) || dayValue < 1 || dayValue > 31) {
+            alert('Dia do mês deve ser entre 1 e 31.');
+            return;
+          }
+        }
+
+        (updateData as any).recurrence = {
+          kind: futState.editRecurrenceKind,
+          day: dayValue
+        };
+      }
+
       // Atualizar no Firebase
       const futRef = ref(database, `futs/${fut.id}`);
       await update(futRef, updateData);

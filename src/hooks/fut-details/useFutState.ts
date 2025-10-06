@@ -87,6 +87,9 @@ export function useFutState() {
   const [editValue, setEditValue] = useState('');
   const [editPixKey, setEditPixKey] = useState('');
   const [editFutType, setEditFutType] = useState<'quadra' | 'campo'>('quadra');
+  // Edição de recorrência (apenas para futs mensais)
+  const [editRecurrenceKind, setEditRecurrenceKind] = useState<'weekly' | 'monthly'>('weekly');
+  const [editRecurrenceDay, setEditRecurrenceDay] = useState<number>(0);
   
   // Estado de modo de edição
   const [isEditingInfo, setIsEditingInfo] = useState(false);
@@ -486,6 +489,10 @@ export function useFutState() {
     setEditPixKey,
     editFutType,
     setEditFutType,
+    editRecurrenceKind,
+    setEditRecurrenceKind,
+    editRecurrenceDay,
+    setEditRecurrenceDay,
     isEditingInfo,
     setIsEditingInfo,
 

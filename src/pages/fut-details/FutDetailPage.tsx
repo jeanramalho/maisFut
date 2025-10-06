@@ -496,6 +496,13 @@ return (
                       futState.setEditValue(futState.fut?.value || '');
                       futState.setEditPixKey(futState.fut?.pixKey || '');
                       futState.setEditFutType(futState.fut?.futType || 'quadra');
+                      // Popular edição de recorrência se for mensal
+                      if (futState.fut?.type === 'mensal') {
+                        const kind = futState.fut?.recurrence?.kind || 'weekly';
+                        const day = typeof futState.fut?.recurrence?.day === 'number' ? futState.fut.recurrence.day : 0;
+                        futState.setEditRecurrenceKind(kind);
+                        futState.setEditRecurrenceDay(day);
+                      }
                       futState.setIsEditingInfo(true);
                     }
                   }}
@@ -716,23 +723,63 @@ return (
                   <Calendar size={18} className="mr-2" />
                   Recorrência
                 </h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Frequência:</span>
-                    <span className="text-white font-medium">{futActions.getRecurrenceText()}</span>
-                  </div>
-                  {futState.fut?.recurrence?.day !== undefined && (
+                {!futState.isEditingInfo ? (
+                  <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Dia:</span>
-                      <span className="text-white font-medium">
-                        {futState.fut.recurrence.kind === 'weekly' 
-                          ? ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'][futState.fut.recurrence.day]
-                          : `Dia ${futState.fut.recurrence.day} do mês`
-                        }
-                      </span>
+                      <span className="text-gray-400">Frequência:</span>
+                      <span className="text-white font-medium">{futActions.getRecurrenceText()}</span>
                     </div>
-                  )}
-                </div>
+                    {futState.fut?.recurrence?.day !== undefined && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Dia:</span>
+                        <span className="text-white font-medium">
+                          {futState.fut.recurrence.kind === 'weekly' 
+                            ? ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'][futState.fut.recurrence.day]
+                            : `Dia ${futState.fut.recurrence.day} do mês`
+                          }
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div>
+                      <span className="text-gray-400 text-sm">Frequência:</span>
+                      <select
+                        value={futState.editRecurrenceKind}
+                        onChange={(e) => futState.setEditRecurrenceKind(e.target.value as 'weekly' | 'monthly')}
+                        className="w-full mt-1 px-3 py-2 bg-primary border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-secondary"
+                      >
+                        <option value="weekly">Semanal</option>
+                        <option value="monthly">Mensal</option>
+                      </select>
+                    </div>
+                    <div>
+                      <span className="text-gray-400 text-sm">Dia:</span>
+                      {futState.editRecurrenceKind === 'weekly' ? (
+                        <select
+                          value={futState.editRecurrenceDay}
+                          onChange={(e) => futState.setEditRecurrenceDay(parseInt(e.target.value))}
+                          className="w-full mt-1 px-3 py-2 bg-primary border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-secondary"
+                        >
+                          {['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'].map((d, idx) => (
+                            <option key={idx} value={idx}>{d}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="number"
+                          min={1}
+                          max={31}
+                          value={futState.editRecurrenceDay}
+                          onChange={(e) => futState.setEditRecurrenceDay(Math.max(1, Math.min(31, Number(e.target.value) || 1)))}
+                          className="w-full mt-1 px-3 py-2 bg-primary border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-secondary"
+                          placeholder="Dia do mês (1-31)"
+                        />
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
