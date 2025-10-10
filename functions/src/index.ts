@@ -119,16 +119,27 @@ export const onOccurrenceClose = functions.database
         // Update occurrence stats
         await occurrenceRef.child('stats').set(playerStats);
 
-        // Update global user stats
+        // Update global user stats with transaction to prevent race conditions
         const updatePromises = Object.entries(playerStats).map(async ([playerId, stats]) => {
           const userStatsRef = admin.database().ref(`/users/${playerId}/stats`);
-          const userStatsSnapshot = await userStatsRef.once('value');
-          const currentStats = userStatsSnapshot.val() || { totalGoals: 0, totalAssists: 0, totalGames: 0 };
-
-          await userStatsRef.update({
-            totalGoals: (currentStats.totalGoals || 0) + stats.goals,
-            totalAssists: (currentStats.totalAssists || 0) + stats.assists,
-            totalGames: (currentStats.totalGames || 0) + 1,
+          
+          // Use transaction to ensure atomic updates and prevent race conditions
+          await userStatsRef.transaction((currentStats) => {
+            if (currentStats === null) {
+              // First time user, initialize stats
+              return {
+                totalGoals: stats.goals,
+                totalAssists: stats.assists,
+                totalGames: 1,
+              };
+            }
+            
+            // Update existing stats
+            return {
+              totalGoals: (currentStats.totalGoals || 0) + stats.goals,
+              totalAssists: (currentStats.totalAssists || 0) + stats.assists,
+              totalGames: (currentStats.totalGames || 0) + 1,
+            };
           });
         });
 
@@ -308,6 +319,9 @@ export const createMonthlyOccurrences = functions.pubsub
 // Helper function to generate and save rankings
 async function generateAndSaveRankings(futId: string, dateId: string, occurrence: any, playerStats: Record<string, { goals: number; assists: number }>) {
   try {
+    console.log(`Generating rankings for fut ${futId}, date ${dateId}`);
+    console.log('Player stats:', JSON.stringify(playerStats, null, 2));
+    
     // Get fut members to get player names
     const futSnapshot = await admin.database().ref(`/futs/${futId}`).once('value');
     const fut = futSnapshot.val();
@@ -322,6 +336,8 @@ async function generateAndSaveRankings(futId: string, dateId: string, occurrence
     const bolaCheiaCounts = votingResult.bolaCheiaCounts || {};
     const bolaMurchaCounts = votingResult.bolaMurchaCounts || {};
 
+    console.log('Voting results:', JSON.stringify(votingResult, null, 2));
+
     // Calculate performance scores (votes + goals*10 + assists*5)
     const performanceScores: Record<string, number> = {};
     Object.entries(playerStats).forEach(([playerId, stats]) => {
@@ -333,12 +349,16 @@ async function generateAndSaveRankings(futId: string, dateId: string, occurrence
       performanceScores[playerId] = Math.round((totalVotes * 20) + (stats.goals * 10) + (stats.assists * 5));
     });
 
+    console.log('Performance scores:', JSON.stringify(performanceScores, null, 2));
+
     // Generate rankings for each type
     const rankings = {
       pontuacao: generateRankingByType(playerStats, fut.members, 'pontuacao', performanceScores),
       artilharia: generateRankingByType(playerStats, fut.members, 'artilharia', performanceScores),
       assistencias: generateRankingByType(playerStats, fut.members, 'assistencias', performanceScores),
     };
+
+    console.log('Generated rankings:', JSON.stringify(rankings, null, 2));
 
     // Determine fut number for this date (if multiple futs on same day)
     const futRankingsRef = admin.database().ref(`/futs/${futId}/rankings/${dateId}`);
@@ -404,6 +424,9 @@ function generateRankingByType(
 // Helper function to update annual rankings
 async function updateAnnualRankings(futId: string, year: number, newRankings: any) {
   try {
+    console.log(`Updating annual rankings for fut ${futId}, year ${year}`);
+    console.log('New rankings to add:', JSON.stringify(newRankings, null, 2));
+    
     const annualRankingsRef = admin.database().ref(`/futs/${futId}/rankings-anual/${year}`);
     const annualSnapshot = await annualRankingsRef.once('value');
     const currentAnnual = annualSnapshot.val() || {
@@ -414,12 +437,16 @@ async function updateAnnualRankings(futId: string, year: number, newRankings: an
       }
     };
 
+    console.log('Current annual rankings:', JSON.stringify(currentAnnual.rankings, null, 2));
+
     // Merge new rankings with existing annual rankings
     const updatedRankings = {
       pontuacao: mergeRankings(currentAnnual.rankings.pontuacao || [], newRankings.pontuacao),
       artilharia: mergeRankings(currentAnnual.rankings.artilharia || [], newRankings.artilharia),
       assistencias: mergeRankings(currentAnnual.rankings.assistencias || [], newRankings.assistencias),
     };
+
+    console.log('Updated annual rankings:', JSON.stringify(updatedRankings, null, 2));
 
     await annualRankingsRef.set({
       year,
@@ -437,7 +464,7 @@ async function updateAnnualRankings(futId: string, year: number, newRankings: an
 function mergeRankings(existingRankings: any[], newRankings: any[]): any[] {
   const mergedStats: Record<string, { goals: number; assists: number; score: number }> = {};
 
-  // Add existing stats
+  // Add existing stats (estes já são totais acumulados)
   existingRankings.forEach(player => {
     mergedStats[player.playerId] = {
       goals: player.goals || 0,
@@ -446,13 +473,15 @@ function mergeRankings(existingRankings: any[], newRankings: any[]): any[] {
     };
   });
 
-  // Add new stats
+  // Add new stats (estes são apenas da rodada atual)
   newRankings.forEach(player => {
     if (mergedStats[player.playerId]) {
+      // Somar apenas os valores da rodada atual aos totais existentes
       mergedStats[player.playerId].goals += player.goals || 0;
       mergedStats[player.playerId].assists += player.assists || 0;
       mergedStats[player.playerId].score += player.score || 0;
     } else {
+      // Primeira participação do jogador
       mergedStats[player.playerId] = {
         goals: player.goals || 0,
         assists: player.assists || 0,
