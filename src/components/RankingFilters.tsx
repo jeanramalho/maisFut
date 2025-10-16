@@ -18,7 +18,7 @@ export default function RankingFilters({
 }: RankingFiltersProps) {
   return (
     <div className="space-y-3">
-      {/* Period Filters */}
+      {/* Period Filters - Apenas Rodada */}
       <div className="flex space-x-1">
         <button
           onClick={() => onPeriodChange('rodada')}
@@ -29,16 +29,6 @@ export default function RankingFilters({
           }`}
         >
           Rodada
-        </button>
-        <button
-          onClick={() => onPeriodChange('anual')}
-          className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-            period === 'anual'
-              ? 'bg-secondary text-primary'
-              : 'bg-gray-600 text-white hover:bg-gray-700'
-          }`}
-        >
-          Anual
         </button>
       </div>
 
